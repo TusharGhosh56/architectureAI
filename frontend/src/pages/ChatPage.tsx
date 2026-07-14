@@ -4,7 +4,8 @@ import { Link } from "react-router-dom";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
 import MermaidDiagram from "../components/MermaidDiagram";
-import { answerFromAnalysis, SUGGESTED_PROMPTS } from "../lib/chatLocal";
+import type { DiagramModel } from "../components/MermaidDiagram";
+import { SUGGESTED_PROMPTS } from "../lib/chatLocal";
 import { loadAnalysis } from "../lib/session";
 
 gsap.registerPlugin(useGSAP);
@@ -13,8 +14,15 @@ type Msg = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  mermaid?: string;
-  inferred?: boolean;
+  diagram?: DiagramModel;
+};
+
+type ChatApiResponse = {
+  status?: string;
+  reply?: string;
+  detail?: string;
+  tools_used?: string[];
+  diagrams?: DiagramModel[];
 };
 
 export default function ChatPage() {
@@ -66,6 +74,11 @@ export default function ChatPage() {
     const trimmed = question.trim();
     if (!trimmed || busy) return;
 
+    const history = messages.map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
     const userMsg: Msg = {
       id: crypto.randomUUID(),
       role: "user",
@@ -76,45 +89,45 @@ export default function ChatPage() {
     setBusy(true);
 
     try {
-      const local = answerFromAnalysis(trimmed, project);
-      if (local) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: local.content,
-            mermaid: local.mermaid,
-            inferred: local.inferred,
-          },
-        ]);
-        return;
-      }
-
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: trimmed,
           project_id: project.project_id,
+          history,
         }),
       });
-      const data = await res.json();
-      const content =
-        typeof data.message === "string"
-          ? data.message
-          : data.echo
-            ? `Received (agent tools wire up next):\n${data.echo}`
-            : JSON.stringify(data, null, 2);
+      const data = (await res.json()) as ChatApiResponse;
+      if (!res.ok) {
+        throw new Error(
+          typeof data.detail === "string" ? data.detail : `Chat failed (HTTP ${res.status})`,
+        );
+      }
 
-      setMessages((prev) => [
-        ...prev,
+      const diagrams = (data.diagrams ?? []).filter((d) => Boolean(d?.mermaid?.trim()));
+      const primary = diagrams[0];
+      const content = (data.reply || "").trim() || "No reply.";
+
+      const next: Msg[] = [
         {
           id: crypto.randomUUID(),
           role: "assistant",
           content,
+          diagram: primary,
         },
-      ]);
+      ];
+
+      for (const d of diagrams.slice(1)) {
+        next.push({
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: "Here's another related diagram.",
+          diagram: d,
+        });
+      }
+
+      setMessages((prev) => [...prev, ...next]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
@@ -150,8 +163,7 @@ export default function ChatPage() {
           <div className="suggest-block">
             <h2>Ask about this codebase</h2>
             <p>
-              Start with a frequent question — diagrams and grounded answers open here,
-              not on the landing page.
+              Ask about what the project does, dependencies, use cases, or architecture layers.
             </p>
             <div className="suggest-grid">
               {SUGGESTED_PROMPTS.map((p) => (
@@ -179,9 +191,9 @@ export default function ChatPage() {
                 {m.role === "user" ? "You" : "ArchitectAI"}
               </span>
               {m.content}
-              {m.mermaid && (
+              {m.diagram && (
                 <div className="diagram-wrap">
-                  <MermaidDiagram chart={m.mermaid} inferred={Boolean(m.inferred)} />
+                  <MermaidDiagram chart={m.diagram.mermaid} model={m.diagram} />
                 </div>
               )}
             </div>
@@ -196,7 +208,7 @@ export default function ChatPage() {
 
         {messages.length > 0 && (
           <div className="suggest-grid" style={{ marginTop: "0.5rem" }}>
-            {SUGGESTED_PROMPTS.slice(0, 3).map((p) => (
+            {SUGGESTED_PROMPTS.slice(0, 4).map((p) => (
               <button
                 key={p.id}
                 type="button"
@@ -216,7 +228,7 @@ export default function ChatPage() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about dependencies, modules, architecture…"
+            placeholder="Ask for deps, use cases, architecture…"
             disabled={busy}
             aria-label="Chat message"
           />

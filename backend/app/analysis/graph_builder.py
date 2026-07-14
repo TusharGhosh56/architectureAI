@@ -133,3 +133,18 @@ def edge_list(graph: nx.DiGraph) -> list[dict]:
         {"from": u, "to": v, "import": data.get("import_name", "")}
         for u, v, data in graph.edges(data=True)
     ]
+
+
+def graph_from_edges(edges: list[dict], files: list[str] | None = None) -> nx.DiGraph:
+    """Rebuild a DiGraph from persisted edge list (+ optional file nodes)."""
+    graph = nx.DiGraph()
+    if files:
+        for f in files:
+            graph.add_node(f)
+    for edge in edges:
+        u = edge.get("from") or edge.get("source")
+        v = edge.get("to") or edge.get("target")
+        if not u or not v:
+            continue
+        graph.add_edge(u, v, import_name=edge.get("import", ""))
+    return graph

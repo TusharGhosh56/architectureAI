@@ -1,0 +1,27 @@
+flowchart LR
+  %% UML-style use case diagram (actors + use cases from routes/services)
+  actor_User(("User"))
+  uc_Login(["Login"])
+  uc_View_current_profile(["View current profile"])
+  uc_Register_a_new_user(["Register a new user"])
+  uc_Poll_job_status_and_results(["Poll job status and results"])
+  uc_Register_a_repository_and_start_analysis(["Register a repository and start analysis"])
+  uc_List_repos(["List repos"])
+  uc_Get_repo(["Get repo"])
+  uc_Delete_repo(["Delete repo"])
+  uc_View_repository_analytics(["View repository analytics"])
+  uc_Reanalyze_repo(["Reanalyze repo"])
+  uc_Get_repo_report(["Get repo report"])
+  uc_Get_status(["Get status"])
+  actor_User --> uc_Login
+  actor_User --> uc_View_current_profile
+  actor_User --> uc_Register_a_new_user
+  actor_User --> uc_Poll_job_status_and_results
+  actor_User --> uc_Register_a_repository_and_start_analysis
+  actor_User --> uc_List_repos
+  actor_User --> uc_Get_repo
+  actor_User --> uc_Delete_repo
+  actor_User --> uc_View_repository_analytics
+  actor_User --> uc_Reanalyze_repo
+  actor_User --> uc_Get_repo_report
+  actor_User --> uc_Get_status

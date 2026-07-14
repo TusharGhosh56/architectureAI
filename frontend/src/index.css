@@ -492,6 +492,11 @@ textarea {
   overflow-x: auto;
 }
 
+.diagram-root svg {
+  max-width: 100%;
+  height: auto;
+}
+
 .chat-composer {
   border-top: 1px solid var(--line);
   background: white;
