@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import chat, upload
 from app.config import get_settings
+from app.llm.client import llm_configured
 
 settings = get_settings()
 
@@ -28,6 +29,7 @@ app.include_router(chat.router)
 def health() -> dict:
     return {
         "status": "ok",
+        "llm_configured": llm_configured(),
         "groq_configured": bool(settings.groq_api_key),
         "use_ollama": settings.use_ollama,
         "groq_model": settings.groq_model,

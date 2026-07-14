@@ -18,9 +18,10 @@ class Settings(BaseSettings):
     use_ollama: bool = False
     ollama_model: str = "llama3.1"
 
-    data_dir: Path = ROOT_DIR / "backend" / "data"
-    chroma_dir: Path = ROOT_DIR / "backend" / "data" / "chroma"
-    uploads_dir: Path = ROOT_DIR / "backend" / "data" / "uploads"
+    # Keep runtime data outside backend/ so uvicorn --reload does not restart mid-upload
+    data_dir: Path = ROOT_DIR / "data"
+    chroma_dir: Path = ROOT_DIR / "data" / "chroma"
+    uploads_dir: Path = ROOT_DIR / "data" / "uploads"
 
     cors_origins: list[str] = [
         "http://localhost:5173",
