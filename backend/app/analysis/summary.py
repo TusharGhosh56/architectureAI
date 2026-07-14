@@ -9,7 +9,9 @@ from app.rag.vector_store import search_codebase
 SYSTEM = (
     "You are a software architect. Summarize the uploaded codebase in 4-8 short sentences. "
     "Be concrete: mention main modules, layering, and likely purpose. "
-    "Do not invent files that are not listed. No markdown headings."
+    "ONLY discuss files and modules listed in the user message. "
+    "Never invent or mention other repositories, cloned projects, or paths not listed. "
+    "No markdown headings."
 )
 
 

@@ -15,7 +15,7 @@ from app.analysis.graph_builder import (
     edge_list,
     important_files,
 )
-from app.analysis.ignore import MAX_SOURCE_FILES
+from app.analysis.ignore import MAX_SOURCE_FILES, analysis_roots, has_nested_repo_dump, path_is_ignored
 from app.analysis.parser_js import parse_js_tree
 from app.analysis.parser_python import parse_python_tree
 from app.analysis.summary import generate_architecture_summary
@@ -34,7 +34,7 @@ def run_pipeline(zip_path: Path, original_filename: str | None = None) -> dict[s
     work_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        project_root = extract_zip(zip_path, work_dir / "src")
+        extracted = extract_zip(zip_path, work_dir / "src")
     except UnsafeZipError:
         shutil.rmtree(work_dir, ignore_errors=True)
         raise
@@ -42,14 +42,20 @@ def run_pipeline(zip_path: Path, original_filename: str | None = None) -> dict[s
         shutil.rmtree(work_dir, ignore_errors=True)
         raise ValueError(f"Failed to extract zip: {exc}") from exc
 
-    py_results = parse_python_tree(project_root)
-    js_results = parse_js_tree(project_root)
+    project_root = extracted.root
+    scoped = extracted.skipped_nested_repos > 0 or has_nested_repo_dump(project_root)
+    roots = analysis_roots(project_root)
+
+    py_results = [r for r in parse_python_tree(project_root) if not path_is_ignored(r.file_path)]
+    js_results = [r for r in parse_js_tree(project_root) if not path_is_ignored(r.file_path)]
     files = sorted({*[r.file_path for r in py_results], *[r.file_path for r in js_results]})
     truncated = len(files) >= MAX_SOURCE_FILES
 
     graph = build_dependency_graph(py_results, js_results)
-    important = important_files(graph)
-    cycles = circular_dependencies(graph)
+    important = [f for f in important_files(graph) if not path_is_ignored(f)]
+    cycles = [
+        c for c in circular_dependencies(graph) if all(not path_is_ignored(p) for p in c)
+    ]
     diagram = generate_mermaid(graph)
 
     chunks = chunk_project(project_root, py_results)
@@ -68,12 +74,23 @@ def run_pipeline(zip_path: Path, original_filename: str | None = None) -> dict[s
         file_count=len(files),
         circular_deps=cycles,
     )
-    if truncated:
-        summary = (
-            f"(Note: analysis capped at {MAX_SOURCE_FILES} source files; "
-            "exclude .venv/node_modules from the zip for better results.)\n\n"
-            + summary
+    notes: list[str] = []
+    if scoped:
+        root_names = ", ".join(
+            ("." if r == project_root else r.name) for r in roots
         )
+        notes.append(
+            f"Nested cloned repos under data/repos were ignored "
+            f"({extracted.skipped_nested_repos} zip entries skipped); "
+            f"analysis limited to: {root_names}."
+        )
+    if truncated:
+        notes.append(
+            f"Analysis capped at {MAX_SOURCE_FILES} source files; "
+            "exclude .venv/node_modules from the zip for better results."
+        )
+    if notes:
+        summary = "\n".join(notes) + "\n\n" + summary
 
     payload: dict[str, Any] = {
         "project_id": project_id,
@@ -92,6 +109,10 @@ def run_pipeline(zip_path: Path, original_filename: str | None = None) -> dict[s
         "chunk_count": indexed,
         "embedding_error": embedding_error,
         "truncated": truncated,
+        "ignored_nested_repos": scoped,
+        "analysis_roots": [
+            "." if r == project_root else str(r.relative_to(project_root)) for r in roots
+        ],
     }
     store.save_project(project_id, payload)
     return payload
