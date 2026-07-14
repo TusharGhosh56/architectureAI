@@ -4,7 +4,6 @@ from typing import NotRequired, TypedDict
 class AnalysisState(TypedDict):
     project_path: str
     files: list[str]
-    # NetworkX DiGraph is stored separately after analysis; keep serializable fields here.
     important_files: list[str]
     circular_deps: list[list[str]]
     diagram_mermaid: str

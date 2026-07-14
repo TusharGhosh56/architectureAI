@@ -17,7 +17,8 @@ build/
 .ruff_cache/
 *.egg
 
-# Backend runtime data
+# Runtime data (uploads, chroma, project JSON) — outside backend so --reload is safe
+data/
 backend/data/
 backend/.chroma/
 *.db

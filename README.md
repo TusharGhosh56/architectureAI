@@ -4,6 +4,12 @@ AI-powered codebase analyzer — upload a repo zip, get a real dependency graph,
 
 See [`plan.md`](./plan.md) for the full build plan.
 
+## What's implemented
+
+- **LLM**: Groq via `langchain-groq` (`app/llm/client.py`), optional Ollama flag
+- **Upload pipeline**: zip extract → Python/JS parsers → NetworkX graph → Mermaid → Chroma RAG index → Groq architecture summary
+- **API**: `POST /api/upload`, `GET /api/health` (chat agent still stub until Day 3)
+
 ## Prerequisites
 
 - Python 3.12+
@@ -37,8 +43,10 @@ cd ..
 ```powershell
 .\.venv\Scripts\Activate.ps1
 cd backend
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --reload-dir app --port 8000
 ```
+
+> Important: zip source code only — leave out `.venv`, `node_modules`, and huge nested clones. Analysis skips those automatically, but a giant zip is still slow to upload.
 
 **Terminal 2 — frontend**
 
