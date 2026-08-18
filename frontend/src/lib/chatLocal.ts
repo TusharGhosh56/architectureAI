@@ -1,103 +1,59 @@
-export const SUGGESTED_PROMPTS = [
+export type PromptItem = {
+  id: string;
+  label: string;
+  question: string;
+  category: "Architecture" | "Dependencies" | "Use Cases" | "Code Quality";
+  icon: string;
+  description: string;
+};
+
+export const SUGGESTED_PROMPTS: PromptItem[] = [
   {
     id: "overview",
-    label: "What does this project do?",
-    question: "What does this project do?",
+    label: "Codebase Overview",
+    question: "What does this project do? Summarize the architecture and core design patterns.",
+    category: "Architecture",
+    icon: "Compass",
+    description: "High-level summary of architecture, domains, and entrypoints",
   },
   {
     id: "graph",
-    label: "Show the dependency graph",
+    label: "Dependency Graph",
     question: "Generate a dependency graph for this project",
+    category: "Dependencies",
+    icon: "Network",
+    description: "Visual node-link graph of AST module imports",
+  },
+  {
+    id: "layers",
+    label: "Layer Architecture",
+    question: "Generate a high-level layered architecture diagram",
+    category: "Architecture",
+    icon: "Layers",
+    description: "Top-to-bottom tiered architectural diagram",
+  },
+  {
+    id: "usecase",
+    label: "UML Use Cases",
+    question: "Generate a UML use case diagram for this project",
+    category: "Use Cases",
+    icon: "Workflow",
+    description: "Actor interactions and user capabilities flow",
   },
   {
     id: "core",
-    label: "What are the core files?",
-    question: "What are the most important / depended-upon files?",
+    label: "Core Modules",
+    question: "What are the most important / depended-upon files in this repository?",
+    category: "Code Quality",
+    icon: "Cpu",
+    description: "Highest in-degree centrality dependency hubs",
   },
   {
     id: "cycles",
-    label: "Any circular dependencies?",
-    question: "Are there any circular dependencies?",
+    label: "Circular Dependency Check",
+    question: "Are there any circular dependencies or cyclic imports?",
+    category: "Code Quality",
+    icon: "AlertTriangle",
+    description: "Detect recursive or cyclic coupling hazards",
   },
-  {
-    id: "auth",
-    label: "Explain the auth module",
-    question: "Explain how authentication works in this codebase",
-  },
-] as const;
-
-export type LocalChatResult = {
-  content: string;
-  mermaid?: string;
-  inferred?: boolean;
-};
-
-/** Grounded answers from the last analysis until the full agent ships. */
-export function answerFromAnalysis(
-  question: string,
-  analysis: {
-    architecture_summary: string;
-    important_files: string[];
-    circular_deps: string[][];
-    diagram_mermaid: string;
-    file_count: number;
-    edge_count: number;
-  },
-): LocalChatResult | null {
-  const q = question.toLowerCase();
-
-  if (
-    q.includes("dependency graph") ||
-    q.includes("generate a graph") ||
-    q.includes("diagram") ||
-    (q.includes("show") && q.includes("graph"))
-  ) {
-    return {
-      content:
-        "Here’s the extracted dependency diagram from your upload — edges come from real imports, not model guesses.",
-      mermaid: analysis.diagram_mermaid,
-      inferred: false,
-    };
-  }
-
-  if (
-    q.includes("what does") ||
-    q.includes("overview") ||
-    q.includes("summary") ||
-    q.includes("architecture")
-  ) {
-    return {
-      content:
-        analysis.architecture_summary ||
-        `Analyzed ${analysis.file_count} source files with ${analysis.edge_count} internal import edges.`,
-    };
-  }
-
-  if (
-    q.includes("important") ||
-    q.includes("core") ||
-    q.includes("central") ||
-    q.includes("depended")
-  ) {
-    const list =
-      analysis.important_files.length > 0
-        ? analysis.important_files.map((f) => `• ${f}`).join("\n")
-        : "No central files detected yet.";
-    return {
-      content: `Most depended-upon files (by in-degree):\n\n${list}`,
-    };
-  }
-
-  if (q.includes("circular") || q.includes("cycle")) {
-    if (!analysis.circular_deps.length) {
-      return { content: "No circular dependencies detected in the parsed import graph." };
-    }
-    const cycles = analysis.circular_deps
-      .slice(0, 8)
-      .map((c, i) => `${i + 1}. ${c.join(" → ")}`)
-      .join("\n");
-    return { content: `Found circular dependencies:\n\n${cycles}` };
-  }
-
-  return null;
-}
+];

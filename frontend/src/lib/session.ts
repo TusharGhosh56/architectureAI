@@ -8,6 +8,7 @@ export type AnalysisSession = {
   diagram_mermaid: string;
   architecture_summary: string;
   chunk_count: number;
+  is_demo?: boolean;
 };
 
 const KEY = "architectai_analysis";
@@ -31,3 +32,4 @@ export function clearAnalysis(): void {
   sessionStorage.removeItem(KEY);
   sessionStorage.removeItem("architectai_project_id");
 }
+
