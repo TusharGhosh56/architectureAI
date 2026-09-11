@@ -79,25 +79,97 @@ def chunk_python_file(path: Path, rel_path: str) -> list[CodeChunk]:
     return chunks
 
 
-def chunk_project(root: Path, py_results: list[PythonParseResult] | None = None) -> list[CodeChunk]:
+def chunk_web_file(path: Path, rel_path: str) -> list[CodeChunk]:
+    """Chunk a JS/TS/Astro/JSON file into meaningful semantic blocks."""
+    source = path.read_text(encoding="utf-8", errors="replace")
+    lines = source.splitlines()
+    if not source.strip():
+        return []
+
+    chunks: list[CodeChunk] = []
+    # If small file (< 80 lines or < 3000 chars), return single module chunk
+    if len(lines) <= 80 or len(source) <= 3000:
+        chunks.append(
+            CodeChunk(
+                chunk_id=f"{rel_path}::__module__:1",
+                file=rel_path,
+                name="__module__",
+                kind="file",
+                start_line=1,
+                end_line=len(lines) or 1,
+                text=f"File: {rel_path}\n\n{source[:3500]}",
+            )
+        )
+        return chunks
+
+    # For larger files, create windowed chunks of 60 lines with 15 lines overlap
+    window_size = 60
+    step = 45
+    for i in range(0, len(lines), step):
+        chunk_lines = lines[i : i + window_size]
+        if not chunk_lines:
+            break
+        text = f"File: {rel_path} (lines {i + 1}-{min(i + window_size, len(lines))})\n\n" + "\n".join(chunk_lines)
+        chunks.append(
+            CodeChunk(
+                chunk_id=f"{rel_path}::block_{i + 1}:{i + 1}",
+                file=rel_path,
+                name=f"block_{i + 1}",
+                kind="block",
+                start_line=i + 1,
+                end_line=min(i + window_size, len(lines)),
+                text=text[:3500],
+            )
+        )
+        if len(chunks) >= 15:  # Cap chunks per large file
+            break
+
+    return chunks
+
+
+def chunk_project(
+    root: Path,
+    py_results: list[PythonParseResult] | None = None,
+    js_results: list[Any] | None = None,
+) -> list[CodeChunk]:
     from app.analysis.ignore import MAX_SOURCE_FILES, path_is_ignored
 
     chunks: list[CodeChunk] = []
-    if py_results is None:
-        from app.analysis.ignore import iter_files_with_suffixes
 
-        paths = iter_files_with_suffixes(root, {".py"})
-    else:
-        paths = []
+    # 1. Python chunks
+    if py_results is not None:
         for r in py_results:
             path = root / r.file_path
             if path.is_file() and not path_is_ignored(path):
-                paths.append(path)
+                chunks.extend(chunk_python_file(path, r.file_path))
+                if len(chunks) >= 600:
+                    break
 
-    for path in paths[:MAX_SOURCE_FILES]:
-        rel = path.relative_to(root).as_posix()
-        chunks.extend(chunk_python_file(path, rel))
-        # Keep embedding tractable for learning/demo zips
-        if len(chunks) >= 800:
-            break
+    # 2. JS / TS / Astro chunks
+    if js_results is not None and len(chunks) < 600:
+        for r in js_results:
+            path = root / r.file_path
+            if path.is_file() and not path_is_ignored(path):
+                chunks.extend(chunk_web_file(path, r.file_path))
+                if len(chunks) >= 600:
+                    break
+
+    # 3. Fallback discovery if results were not passed
+    if py_results is None and js_results is None:
+        from app.analysis.ignore import iter_files_with_suffixes
+        from app.analysis.parser_js import RECOGNIZED_WEB_EXTENSIONS
+
+        for path in iter_files_with_suffixes(root, {".py"}):
+            rel = path.relative_to(root).as_posix()
+            chunks.extend(chunk_python_file(path, rel))
+            if len(chunks) >= 600:
+                break
+
+        if len(chunks) < 600:
+            for path in iter_files_with_suffixes(root, RECOGNIZED_WEB_EXTENSIONS):
+                rel = path.relative_to(root).as_posix()
+                chunks.extend(chunk_web_file(path, rel))
+                if len(chunks) >= 600:
+                    break
+
     return chunks

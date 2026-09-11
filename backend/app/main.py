@@ -30,6 +30,8 @@ def health() -> dict:
     return {
         "status": "ok",
         "llm_configured": llm_configured(),
+        "gemini_configured": bool(settings.gemini_api_key),
+        "gemini_model": settings.gemini_model,
         "groq_configured": bool(settings.groq_api_key),
         "use_ollama": settings.use_ollama,
         "groq_model": settings.groq_model,

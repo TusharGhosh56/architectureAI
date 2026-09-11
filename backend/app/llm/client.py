@@ -1,61 +1,137 @@
-"""LLM client — Groq free tier primary, optional Ollama fallback."""
+"""LLM client — Groq free tier primary, optional Ollama fallback.
+
+Zero langchain dependencies for ultra-lightweight, fast execution on serverless.
+"""
 
 from __future__ import annotations
 
 from functools import lru_cache
-
-from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import HumanMessage, SystemMessage
+from typing import Any
 
 from app.config import get_settings
 
 
 @lru_cache
-def get_llm() -> BaseChatModel:
+def get_groq_client() -> Any:
     settings = get_settings()
-
-    if settings.use_ollama:
-        try:
-            from langchain_ollama import ChatOllama
-        except ImportError as exc:
-            raise RuntimeError(
-                "USE_OLLAMA=true but langchain-ollama is not installed. "
-                "pip install langchain-ollama"
-            ) from exc
-        return ChatOllama(model=settings.ollama_model, temperature=0.2)
-
     if not settings.groq_api_key:
         raise RuntimeError(
             "GROQ_API_KEY is missing. Add it to .env or set USE_OLLAMA=true."
         )
 
-    from langchain_groq import ChatGroq
+    from groq import Groq
 
-    return ChatGroq(
-        api_key=settings.groq_api_key,
-        model=settings.groq_model,
-        temperature=0.2,
-    )
+    return Groq(api_key=settings.groq_api_key)
 
 
 def llm_configured() -> bool:
     settings = get_settings()
-    return bool(settings.groq_api_key) or settings.use_ollama
+    return bool(settings.gemini_api_key) or bool(settings.groq_api_key) or settings.use_ollama
+
+
+def complete_gemini(system: str, user: str, model: str | None = None) -> str:
+    """Call Google Gemini generateContent REST API via httpx."""
+    import httpx
+
+    settings = get_settings()
+    api_key = settings.gemini_api_key.strip()
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY is missing.")
+
+    # Sanitize model name (e.g. gemini-2.5-flash or gemini-1.5-flash)
+    raw_model = model or settings.gemini_model or "gemini-2.5-flash"
+    # Ensure recognized model format
+    if "gemini" not in raw_model.lower():
+        raw_model = "gemini-2.5-flash"
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{raw_model}:generateContent"
+
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": user}],
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.2,
+        },
+    }
+
+    if system:
+        payload["systemInstruction"] = {
+            "parts": [{"text": system}]
+        }
+
+    with httpx.Client(timeout=60.0) as client:
+        resp = client.post(
+            url,
+            params={"key": api_key},
+            json=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        if resp.status_code != 200:
+            # If specified model was rejected (e.g. 404), retry with gemini-2.5-flash or gemini-1.5-flash
+            if raw_model != "gemini-2.5-flash":
+                url_fallback = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+                resp = client.post(
+                    url_fallback,
+                    params={"key": api_key},
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                )
+        resp.raise_for_status()
+        data = resp.json()
+
+    candidates = data.get("candidates") or []
+    if not candidates:
+        return ""
+    parts = candidates[0].get("content", {}).get("parts", [])
+    texts = [p.get("text", "") for p in parts if "text" in p]
+    return "".join(texts).strip()
 
 
 def complete(system: str, user: str) -> str:
     """Single-turn completion for pipeline summary calls."""
-    llm = get_llm()
-    response = llm.invoke(
-        [SystemMessage(content=system), HumanMessage(content=user)]
+    settings = get_settings()
+
+    # 1. Prefer Gemini if configured
+    if settings.gemini_api_key:
+        try:
+            return complete_gemini(system, user)
+        except Exception as exc:
+            # If Gemini fails, fallback to Groq/Ollama if available
+            if not (settings.groq_api_key or settings.use_ollama):
+                raise
+
+    # 2. Ollama
+    if settings.use_ollama:
+        import httpx
+
+        resp = httpx.post(
+            f"{settings.ollama_base_url}/api/chat",
+            json={
+                "model": settings.ollama_model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "stream": False,
+                "options": {"temperature": 0.2},
+            },
+            timeout=60.0,
+        )
+        resp.raise_for_status()
+        return resp.json()["message"]["content"].strip()
+
+    # 3. Groq
+    client = get_groq_client()
+    response = client.chat.completions.create(
+        model=settings.groq_model,
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        temperature=0.2,
     )
-    content = response.content
-    if isinstance(content, list):
-        parts = []
-        for block in content:
-            if isinstance(block, str):
-                parts.append(block)
-            elif isinstance(block, dict) and "text" in block:
-                parts.append(str(block["text"]))
-        return "".join(parts).strip()
-    return str(content).strip()
+    return (response.choices[0].message.content or "").strip()

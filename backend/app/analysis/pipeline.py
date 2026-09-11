@@ -16,6 +16,7 @@ from app.analysis.graph_builder import (
     important_files,
 )
 from app.analysis.ignore import MAX_SOURCE_FILES, analysis_roots, has_nested_repo_dump, path_is_ignored
+from app.analysis.manifest import extract_manifest
 from app.analysis.parser_js import parse_js_tree
 from app.analysis.parser_python import parse_python_tree
 from app.analysis.summary import generate_architecture_summary
@@ -46,6 +47,8 @@ def run_pipeline(zip_path: Path, original_filename: str | None = None) -> dict[s
     scoped = extracted.skipped_nested_repos > 0 or has_nested_repo_dump(project_root)
     roots = analysis_roots(project_root)
 
+    manifest = extract_manifest(project_root)
+
     py_results = [r for r in parse_python_tree(project_root) if not path_is_ignored(r.file_path)]
     js_results = [r for r in parse_js_tree(project_root) if not path_is_ignored(r.file_path)]
     files = sorted({*[r.file_path for r in py_results], *[r.file_path for r in js_results]})
@@ -58,7 +61,7 @@ def run_pipeline(zip_path: Path, original_filename: str | None = None) -> dict[s
     ]
     diagram = generate_mermaid(graph)
 
-    chunks = chunk_project(project_root, py_results)
+    chunks = chunk_project(project_root, py_results, js_results)
     indexed = 0
     try:
         indexed = VectorStore(project_id).index_chunks(chunks)
@@ -73,6 +76,7 @@ def run_pipeline(zip_path: Path, original_filename: str | None = None) -> dict[s
         important=important,
         file_count=len(files),
         circular_deps=cycles,
+        manifest=manifest,
     )
     notes: list[str] = []
     if scoped:
@@ -110,6 +114,13 @@ def run_pipeline(zip_path: Path, original_filename: str | None = None) -> dict[s
         "embedding_error": embedding_error,
         "truncated": truncated,
         "ignored_nested_repos": scoped,
+        "manifest": {
+            "name": manifest.name,
+            "framework": manifest.framework,
+            "description": manifest.description,
+            "entrypoints": manifest.entrypoints,
+            "page_titles": manifest.page_titles,
+        },
         "analysis_roots": [
             "." if r == project_root else str(r.relative_to(project_root)) for r in roots
         ],
