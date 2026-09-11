@@ -76,6 +76,39 @@ export default function ChatPage() {
     setBusy(true);
 
     try {
+      let data: any = null;
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: trimmed,
+            project_id: project.project_id,
+            analysis: project,
+          }),
+        });
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (err) {
+        console.warn("Backend chat request failed, falling back to local analysis:", err);
+      }
+
+      if (data && data.message) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: data.message,
+            mermaid: data.mermaid,
+            inferred: data.inferred,
+          },
+        ]);
+        return;
+      }
+
+      // Offline / fallback if backend is unreachable or returns error
       const local = answerFromAnalysis(trimmed, project);
       if (local) {
         setMessages((prev) => [
@@ -91,21 +124,14 @@ export default function ChatPage() {
         return;
       }
 
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: trimmed,
-          project_id: project.project_id,
-        }),
-      });
-      const data = await res.json();
       const content =
-        typeof data.message === "string"
+        data && typeof data.message === "string"
           ? data.message
-          : data.echo
-            ? `Received (agent tools wire up next):\n${data.echo}`
-            : JSON.stringify(data, null, 2);
+          : data && data.echo
+            ? `Received:\n${data.echo}`
+            : data
+              ? JSON.stringify(data, null, 2)
+              : "Chat request failed.";
 
       setMessages((prev) => [
         ...prev,
@@ -113,6 +139,8 @@ export default function ChatPage() {
           id: crypto.randomUUID(),
           role: "assistant",
           content,
+          mermaid: typeof data.mermaid === "string" ? data.mermaid : undefined,
+          inferred: Boolean(data.inferred),
         },
       ]);
     } catch (err) {

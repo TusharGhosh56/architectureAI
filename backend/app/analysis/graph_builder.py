@@ -61,16 +61,20 @@ def _js_specifier_to_candidates(spec: str, from_file: str) -> list[str]:
 
     candidates = [
         base,
-        f"{base}.js",
-        f"{base}.jsx",
+        f"{base}.astro",
         f"{base}.ts",
         f"{base}.tsx",
+        f"{base}.js",
+        f"{base}.jsx",
         f"{base}.mjs",
         f"{base}.cjs",
-        f"{base}/index.js",
-        f"{base}/index.jsx",
+        f"{base}.vue",
+        f"{base}.svelte",
+        f"{base}/index.astro",
         f"{base}/index.ts",
         f"{base}/index.tsx",
+        f"{base}/index.js",
+        f"{base}/index.jsx",
     ]
     return candidates
 
