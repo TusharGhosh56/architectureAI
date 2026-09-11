@@ -54,12 +54,13 @@ def get_dist_dir() -> Path | None:
     repo_root = backend_dir.parent                 # project root
 
     candidates = [
-        repo_root / "frontend" / "dist",
+        current_dir / "dist",
         backend_dir / "dist",
         backend_dir / "frontend" / "dist",
+        repo_root / "frontend" / "dist",
         repo_root / "dist",
-        Path.cwd() / "frontend" / "dist",
         Path.cwd() / "dist",
+        Path.cwd() / "frontend" / "dist",
         Path("/vercel/path0/frontend/dist"),
         Path("/vercel/path0/backend/frontend/dist"),
         Path("/vercel/path0/backend/dist"),
@@ -74,11 +75,54 @@ def get_dist_dir() -> Path | None:
 def _serve_static_file(file_path: Path) -> Response:
     if not file_path.is_file():
         return Response(status_code=404, content=b'{"detail":"Not Found"}', media_type="application/json")
-    content_type, _ = mimetypes.guess_type(str(file_path))
+    
+    suffix = file_path.suffix.lower()
+    if suffix in (".js", ".mjs"):
+        content_type = "application/javascript; charset=utf-8"
+    elif suffix == ".css":
+        content_type = "text/css; charset=utf-8"
+    elif suffix == ".html":
+        content_type = "text/html; charset=utf-8"
+    elif suffix == ".svg":
+        content_type = "image/svg+xml"
+    elif suffix == ".png":
+        content_type = "image/png"
+    elif suffix == ".json":
+        content_type = "application/json; charset=utf-8"
+    else:
+        guessed, _ = mimetypes.guess_type(str(file_path))
+        content_type = guessed or "application/octet-stream"
+
     return Response(
         content=file_path.read_bytes(),
-        media_type=content_type or "application/octet-stream",
+        media_type=content_type,
     )
+
+
+@app.get("/assets/{file_path:path}")
+def serve_assets(file_path: str) -> Response:
+    d = get_dist_dir()
+    if d:
+        target = d / "assets" / file_path
+        if target.is_file():
+            return _serve_static_file(target)
+    return Response(status_code=404, content=b'{"detail":"Asset Not Found"}', media_type="application/json")
+
+
+@app.get("/favicon.svg")
+def serve_favicon() -> Response:
+    d = get_dist_dir()
+    if d and (d / "favicon.svg").is_file():
+        return _serve_static_file(d / "favicon.svg")
+    return Response(status_code=404)
+
+
+@app.get("/icons.svg")
+def serve_icons() -> Response:
+    d = get_dist_dir()
+    if d and (d / "icons.svg").is_file():
+        return _serve_static_file(d / "icons.svg")
+    return Response(status_code=404)
 
 
 @app.get("/")

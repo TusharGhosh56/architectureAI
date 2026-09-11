@@ -26,10 +26,13 @@ const targetDirs = [
   path.resolve(__dirname, 'dist'),
   path.resolve(__dirname, 'frontend', 'dist'),
   path.resolve(__dirname, 'backend', 'dist'),
+  path.resolve(__dirname, 'backend', 'app', 'dist'),
   path.resolve(__dirname, 'backend', 'frontend', 'dist'),
+  path.resolve(__dirname, 'app', 'dist'),
   path.resolve(__dirname, '..', 'dist'),
   path.resolve(__dirname, '..', 'frontend', 'dist'),
   path.resolve(__dirname, '..', 'backend', 'dist'),
+  path.resolve(__dirname, '..', 'backend', 'app', 'dist'),
   path.resolve(__dirname, '..', 'backend', 'frontend', 'dist'),
 ];
 
