@@ -3,6 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { saveAnalysis, loadAnalysis, type AnalysisSession } from "../lib/session";
 import { SAMPLE_PROJECTS } from "../lib/samples";
 
+import ingestArchiveImg from "../assets/ingest_archive.jpg";
+import benchmarkFastApiImg from "../assets/benchmark_fastapi.jpg";
+import benchmarkReactImg from "../assets/benchmark_react.jpg";
+import securityAstImg from "../assets/security_ast.jpg";
+
 type TelemetryLog = {
   time: string;
   tag: string;
@@ -17,6 +22,7 @@ export default function LaserDropzone() {
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<TelemetryLog[]>([]);
+  const [hoveredRow, setHoveredRow] = useState<string | null>(null);
   const activeSession = loadAnalysis();
 
   function addLog(tag: string, message: string) {
@@ -60,7 +66,7 @@ export default function LaserDropzone() {
   }
 
   function handleLoadSample(sample: AnalysisSession) {
-    addLog("SAMPLE", `Loading sample codebase: ${sample.filename}`);
+    addLog("SAMPLE", `Loading benchmark codebase: ${sample.filename}`);
     saveAnalysis(sample);
     setTimeout(() => {
       navigate("/chat");
@@ -132,192 +138,216 @@ export default function LaserDropzone() {
     }
   }
 
+  const rows = [
+    {
+      id: "archive",
+      title: "DROP ARCHIVE",
+      category: "LOCAL .ZIP",
+      image: ingestArchiveImg,
+      alt: "Upload or drop repository zip archive",
+      hint: "Click to select your codebase .zip archive",
+      action: () => fileInputRef.current?.click(),
+    },
+    {
+      id: "fastapi",
+      title: "FASTAPI SERVICE",
+      category: "BENCHMARK · 28 FILES",
+      image: benchmarkFastApiImg,
+      alt: "FastAPI agent microservice architecture topology",
+      hint: "Click to load pre-compiled FastAPI agent service",
+      action: () => handleLoadSample(SAMPLE_PROJECTS[0]),
+    },
+    {
+      id: "react",
+      title: "REACT DASHBOARD",
+      category: "BENCHMARK · 36 FILES",
+      image: benchmarkReactImg,
+      alt: "React TypeScript frontend component hierarchy",
+      hint: "Click to load modern React TypeScript dashboard",
+      action: () => handleLoadSample(SAMPLE_PROJECTS[1]),
+    },
+    {
+      id: "security",
+      title: "ZERO EXECUTION",
+      category: "IN-MEMORY AST",
+      image: securityAstImg,
+      alt: "In-memory AST static code analysis security",
+      hint: "Safe static analysis with zero untrusted execution",
+      action: () => {
+        addLog("SECURITY", "Verified in-memory AST evaluation: Zero arbitrary code execution.");
+      },
+    },
+  ];
+
   return (
-    <section className="split-feature-section" id="workspace">
-      <div className="split-feature-container">
-        {/* Left Column: Simple small content */}
-        <div className="split-content-left">
-          <div className="feature-eyebrow">// INGESTION WORKSPACE</div>
-          <h2 className="split-heading">
+    <section
+      className={`workspace-showcase-section ${isDragging ? "is-drag-active" : ""}`}
+      id="workspace"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Hidden File Input for Native File Dialog */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".zip,application/zip"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          validateAndSetFile(e.target.files?.[0] ?? null);
+          e.target.value = "";
+        }}
+      />
+
+      {/* Drag Over Active Glow Overlay */}
+      {isDragging && (
+        <div className="workspace-drag-overlay">
+          <div className="workspace-drag-prompt">
+            <span className="workspace-drag-icon">⚡</span>
+            <span>Drop repository archive (.zip) to ingest</span>
+          </div>
+        </div>
+      )}
+
+      <div className="workspace-showcase-container">
+        {/* Eyebrow & Headline */}
+        <div className="workspace-header-cluster">
+          <h2 className="workspace-headline">
             Analyze any codebase.
             <br />
             <span style={{ color: "#cbd5e1" }}>Zero code execution.</span>
           </h2>
-          <p className="split-subheadline">
+          <p className="workspace-subheadline">
             Drop any Python (3.10–3.12) or TypeScript repository archive. ArchitectAI evaluates syntax trees in-memory without running untrusted code, extracting import graphs and ranking blast-radius gravity in seconds.
           </p>
-
-          <div style={{ marginTop: "0.5rem" }}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-muted)", marginBottom: "0.65rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Or explore a benchmark architecture:
-            </div>
-            <div style={{ display: "flex", gap: "0.65rem", flexWrap: "wrap" }}>
-              {SAMPLE_PROJECTS.map((sample) => (
-                <button
-                  key={sample.project_id}
-                  type="button"
-                  className="sample-text-btn"
-                  onClick={() => handleLoadSample(sample)}
-                >
-                  <span className="sample-btn-name">{sample.filename}</span>
-                  <span className="sample-btn-meta">({sample.file_count} files)</span>
-                  <span style={{ color: "var(--accent-teal)" }}>→</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
-        {/* Right Column: Interactive macOS Window */}
-        <div className="split-visual-right">
-          <div className="feature-window-frame">
-            <div className="repo-window-header">
-              <div className="window-dots-cluster">
-                <span className="window-dot" style={{ background: "#ff5f56" }} />
-                <span className="window-dot" style={{ background: "#ffbd2e" }} />
-                <span className="window-dot" style={{ background: "#27c93f" }} />
-              </div>
-              <div className="repo-url-bar">
-                <span style={{ color: "#c9d1d9" }}>workspace / archive-dropstage</span>
-                <span style={{ fontSize: "10px", padding: "0.1rem 0.4rem", borderRadius: "9999px", background: "rgba(255, 255, 255, 0.08)", color: "#8b949e" }}>
-                  .ZIP
-                </span>
-              </div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--accent-teal)" }}>
-                IN-MEMORY AST
+        {/* Staged File Action Banner (Appears when a .zip is staged) */}
+        {file && (
+          <div className="staged-archive-banner">
+            <div className="staged-archive-info">
+              <span className="staged-archive-badge">STAGED</span>
+              <div>
+                <div className="staged-archive-filename">{file.name}</div>
+                <div className="staged-archive-meta">
+                  {(file.size / 1024).toFixed(1)} KB · Ready for AST Extraction
+                </div>
               </div>
             </div>
-
-            <div
-              className={`laser-dropstage ${isDragging ? "active" : ""}`}
-              style={{ border: "none", borderRadius: 0, padding: "2.75rem 2rem" }}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".zip,application/zip"
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  validateAndSetFile(e.target.files?.[0] ?? null);
-                  e.target.value = "";
-                }}
-              />
-
-              <div className="dropstage-core">
-                <div className="dropstage-prompt">
-                  {analyzing
-                    ? "Parsing Abstract Syntax Trees & Computing Centrality..."
-                    : file
-                      ? `Archive Ready: ${file.name}`
-                      : "Drop your repository archive (.zip) here, or browse"}
-                </div>
-
-                <div className="dropstage-note">
-                  Python 3.10–3.12 · TypeScript 5.x · Vendor folders (<code className="inline-code">node_modules</code>, <code className="inline-code">.venv</code>) excluded automatically.
-                </div>
-
-                {!analyzing && (
-                  <div style={{ display: "flex", gap: "0.85rem", marginTop: "1rem", flexWrap: "wrap", justifyContent: "center", alignItems: "center" }}>
-                    <button
-                      type="button"
-                      className="btn-secondary-glass"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      {file ? "Change Archive" : "Select .zip Archive"}
-                    </button>
-
-                    {file && (
-                      <button
-                        type="button"
-                        className="btn-border-beam-wrapper"
-                        onClick={handleAnalyze}
-                      >
-                        <span className="btn-border-beam-core">
-                          <span>Analyze Codebase</span>
-                          <span style={{ color: "var(--accent-teal)", fontWeight: 700 }}>→</span>
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {error && (
-                  <div
-                    style={{
-                      color: "var(--accent-rose)",
-                      fontFamily: "var(--font-mono)",
-                      fontSize: "12px",
-                      border: "1px solid rgba(244, 63, 94, 0.4)",
-                      background: "var(--accent-rose-dim)",
-                      padding: "0.65rem 1rem",
-                      borderRadius: "8px",
-                      width: "100%",
-                      marginTop: "0.75rem",
-                      textAlign: "left",
-                    }}
-                  >
-                    <strong>[PIPELINE ERROR]</strong> {error}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {logs.length > 0 && (
-              <div className="telemetry-terminal" style={{ margin: "0", borderRadius: 0, borderLeft: "none", borderRight: "none", borderBottom: "none" }}>
-                <div
-                  style={{
-                    color: "var(--text-faint)",
-                    borderBottom: "1px solid rgba(255,255,255,0.06)",
-                    paddingBottom: "0.4rem",
-                    marginBottom: "0.4rem",
-                    display: "flex",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <span>// PIPELINE TELEMETRY STREAM</span>
-                  <span>PORT :8000</span>
-                </div>
-                {logs.map((l, i) => (
-                  <div key={i}>
-                    <span className="telemetry-line-time">{l.time}</span>
-                    <span className="telemetry-line-tag">[{l.tag}]</span>
-                    <span>{l.message}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            {activeSession && !analyzing && (
-              <div
-                style={{
-                  padding: "0.85rem 1.25rem",
-                  background: "rgba(45, 212, 191, 0.05)",
-                  borderTop: "1px solid rgba(45, 212, 191, 0.2)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  flexWrap: "wrap",
-                  gap: "0.75rem",
-                }}
+            <div className="staged-archive-buttons">
+              <button
+                type="button"
+                className="btn-secondary-glass"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={analyzing}
               >
-                <div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "10.5px", color: "var(--accent-teal)", fontWeight: 700 }}>
-                    ACTIVE SESSION: {activeSession.filename}
-                  </div>
-                  <div style={{ fontFamily: "var(--font-mono)", fontSize: "11px", color: "var(--text-secondary)" }}>
-                    {activeSession.file_count} nodes · {activeSession.edge_count} edges
-                  </div>
-                </div>
-                <Link to="/chat" style={{ fontFamily: "var(--font-mono)", fontSize: "11.5px", color: "var(--accent-teal)", fontWeight: 600 }}>
-                  Open Studio Canvas →
-                </Link>
-              </div>
-            )}
+                Change Archive
+              </button>
+              <button
+                type="button"
+                className="btn-border-beam-wrapper"
+                onClick={handleAnalyze}
+                disabled={analyzing}
+              >
+                <span className="btn-border-beam-core">
+                  <span>{analyzing ? "Extracting AST..." : "Analyze Codebase"}</span>
+                  <span style={{ color: "var(--accent-teal)", fontWeight: 700 }}>→</span>
+                </span>
+              </button>
+            </div>
           </div>
+        )}
+
+        {/* Error Notification */}
+        {error && (
+          <div className="workspace-pipeline-error">
+            <strong>[PIPELINE ERROR]</strong> {error}
+          </div>
+        )}
+
+        {/* 4 Interactive Process Rows with Hover Slant & Preview Card Reveal */}
+        <div className="process-list-container" role="list">
+          {rows.map((row) => {
+            const isHovered = hoveredRow === row.id;
+
+            return (
+              <div
+                key={row.id}
+                role="listitem"
+                className={`process-row ${isHovered ? "is-active" : ""}`}
+                onMouseEnter={() => setHoveredRow(row.id)}
+                onMouseLeave={() => setHoveredRow(null)}
+                onClick={row.action}
+                title={row.hint}
+              >
+                {/* Left Side: Heavy Typography Main Title */}
+                <div className="process-title-wrapper">
+                  <span className={`process-title ${isHovered ? "text-accent-blue" : ""}`}>
+                    {row.title}
+                  </span>
+                </div>
+
+                {/* Right Side: Hover-Revealed Thumbnail Card & Category Tag */}
+                <div className="process-meta-wrapper">
+                  {/* Floating Image Preview Card */}
+                  <div
+                    className={`process-image-card ${isHovered ? "card-visible" : "card-hidden"}`}
+                    aria-hidden={!isHovered}
+                  >
+                    <img
+                      src={row.image}
+                      alt={row.alt}
+                      className="process-card-thumbnail"
+                      loading="eager"
+                    />
+                    <div className="process-card-overlay" />
+                  </div>
+
+                  {/* Category Tag on the Right */}
+                  <span className={`process-category-tag ${isHovered ? "tag-dimmed" : ""}`}>
+                    {row.category}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
+
+        {/* Telemetry Stream Terminal (Active during analysis or if logs exist) */}
+        {logs.length > 0 && (
+          <div className="telemetry-terminal workspace-telemetry-box">
+            <div className="telemetry-terminal-header">
+              <span>// PIPELINE TELEMETRY STREAM</span>
+              <span>PORT :8000</span>
+            </div>
+            {logs.map((l, i) => (
+              <div key={i} className="telemetry-log-row">
+                <span className="telemetry-line-time">{l.time}</span>
+                <span className="telemetry-line-tag">[{l.tag}]</span>
+                <span>{l.message}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Active Session Footer Bar */}
+        {activeSession && !analyzing && (
+          <div className="workspace-active-session-bar">
+            <div>
+              <div className="active-session-label">
+                ACTIVE SESSION: {activeSession.filename}
+              </div>
+              <div className="active-session-meta">
+                {activeSession.file_count} nodes · {activeSession.edge_count} edges
+              </div>
+            </div>
+            <Link to="/chat" className="active-session-link">
+              Open Studio Canvas →
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );
 }
+
