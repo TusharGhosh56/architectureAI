@@ -4,7 +4,6 @@ type ShowcaseTab = "graph" | "centrality" | "cycles" | "agent";
 
 export default function StudioShowcase() {
   const [activeTab, setActiveTab] = useState<ShowcaseTab>("graph");
-  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
 
   return (
     <div className="studio-showcase-container">
@@ -84,12 +83,7 @@ export default function StudioShowcase() {
                 <path d="M 780 325 L 460 390" stroke="#334155" strokeWidth="1.25" markerEnd="url(#arrow-subtle)" />
 
                 {/* Node: app/main.py (Root Foundation) */}
-                <g
-                  transform="translate(370, 40)"
-                  style={{ cursor: "pointer" }}
-                  onMouseEnter={() => setHoveredNode("main")}
-                  onMouseLeave={() => setHoveredNode(null)}
-                >
+                <g transform="translate(370, 40)" style={{ cursor: "pointer" }}>
                   <rect
                     width="180"
                     height="40"

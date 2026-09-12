@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type MouseEvent } from "react";
+import { useState, useRef, type MouseEvent } from "react";
 import defaultBackImage from "../assets/repo_graph.jpg";
 import defaultFrontImage from "../assets/repo_audit.jpg";
 

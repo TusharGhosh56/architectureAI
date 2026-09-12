@@ -224,7 +224,9 @@ export default function HowItWorks() {
               >
                 {/* 3D Pushpin anchored to top center */}
                 <div
-                  ref={(el) => (pinRefs.current[idx] = el)}
+                  ref={(el) => {
+                    pinRefs.current[idx] = el;
+                  }}
                   className="pushpin-container"
                 >
                   <Pushpin color={step.pinColor} />

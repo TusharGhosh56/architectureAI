@@ -151,7 +151,7 @@ export default function MermaidDiagram({ chart, inferred = false, onSelectNode }
       const target = (e.target as Element).closest(".node, .actor");
       if (target) {
         const text = target.textContent?.trim();
-        if (text) {
+        if (text && onSelectNode) {
           onSelectNode(text);
         }
       }
@@ -192,6 +192,7 @@ export default function MermaidDiagram({ chart, inferred = false, onSelectNode }
     if (!el) return;
 
     function handleWheelNative(e: WheelEvent) {
+      if (!el) return;
       // Prevents full webpage zoom in Chrome/Edge/Safari
       e.preventDefault();
       e.stopPropagation();
