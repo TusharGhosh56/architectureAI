@@ -1,30 +1,23 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { loadAnalysis, clearAnalysis } from "../lib/session";
+import { Link, useLocation } from "react-router-dom";
+import { LogoIcon } from "./Icons";
 
 export default function Navbar() {
   const location = useLocation();
-  const navigate = useNavigate();
-  const session = loadAnalysis();
   const isChat = location.pathname === "/chat";
-
-  function handleReset() {
-    clearAnalysis();
-    navigate("/");
-  }
 
   return (
     <header className="masthead">
       <div className="masthead-left">
-        <Link to="/" className="masthead-brand">
-          <span>architect</span><span style={{ color: "var(--accent-teal)" }}>ai</span>
-        </Link>        
-
-        {session && (
-          <div className="status-indicator" style={{ borderLeft: "1px solid var(--border-subtle)", paddingLeft: "0.75rem" }}>
-            <span style={{ color: "var(--text-white)", fontWeight: 600 }}>{session.filename}</span>
-            <span style={{ color: "var(--text-muted)" }}>({session.file_count} NODES · {session.edge_count} EDGES)</span>
+        <Link to="/" className="masthead-brand" title="ArchitectAI Home">
+          <div className="masthead-logo-wrap">
+            <LogoIcon size={24} className="masthead-logo-icon" />
           </div>
-        )}
+          <div className="masthead-title-group">
+            <span className="masthead-brand-title">
+              Architect<span className="masthead-brand-highlight">AI</span>
+            </span>
+          </div>
+        </Link>
       </div>
 
       <div className="masthead-right">
@@ -33,27 +26,16 @@ export default function Navbar() {
             to="/"
             className={`segment-btn ${!isChat ? "active" : ""}`}
           >
-            01. WORKBENCH
+            Workbench
           </Link>
           <Link
             to="/chat"
             className={`segment-btn ${isChat ? "active" : ""}`}
           >
-            02. STUDIO CANVAS
+            Studio Canvas
           </Link>
         </div>
 
-        {session && (
-          <button
-            type="button"
-            className="btn-icon-tiny"
-            style={{ fontSize: "10px", padding: "0.25rem 0.55rem" }}
-            onClick={handleReset}
-            title="Clear active project from memory"
-          >
-            RESET
-          </button>
-        )}
       </div>
     </header>
   );

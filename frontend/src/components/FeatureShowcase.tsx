@@ -22,6 +22,7 @@ export default function FeatureShowcase() {
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<TelemetryLog[]>([]);
   const [activeRow, setActiveRow] = useState<number>(0); // Default first row expanded
+  const [completedSession, setCompletedSession] = useState<AnalysisSession | null>(null);
   const activeSession = loadAnalysis();
 
   function addLog(tag: string, message: string) {
@@ -49,8 +50,9 @@ export default function FeatureShowcase() {
     }
   }
 
-  function validateAndSetFile(selected: File | null) {
+  function validateAndSetFile(selected: File | null, autoAnalyze = false) {
     setError(null);
+    setCompletedSession(null);
     if (!selected) {
       setFile(null);
       return;
@@ -63,10 +65,21 @@ export default function FeatureShowcase() {
     setFile(selected);
     setActiveRow(0); // Ensure Ingestion row is expanded
     addLog("STAGING", `Archive selected: ${selected.name} (${(selected.size / 1024).toFixed(1)} KB)`);
+
+    setTimeout(() => {
+      document.getElementById("workspace")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+
+    if (autoAnalyze) {
+      setTimeout(() => {
+        handleAnalyze(selected);
+      }, 400);
+    }
   }
 
-  async function handleAnalyze() {
-    if (!file) {
+  async function handleAnalyze(fileOverride?: unknown) {
+    const activeFile = fileOverride instanceof File ? fileOverride : file;
+    if (!activeFile) {
       setError("Select or drop a codebase archive first.");
       return;
     }
@@ -74,12 +87,12 @@ export default function FeatureShowcase() {
     setError(null);
     setLogs([]);
 
-    addLog("INIT", `Starting AST extraction for ${file.name}`);
+    addLog("INIT", `Starting AST extraction for ${activeFile.name}`);
     addLog("PARSER", "Filtering exclusions (node_modules, .venv, .git, vendor)...");
 
     try {
       const body = new FormData();
-      body.append("file", file);
+      body.append("file", activeFile);
 
       addLog("NETWORK", "Streaming archive to backend pipeline on :8000...");
       const res = await fetch("/api/upload", { method: "POST", body });
@@ -105,7 +118,7 @@ export default function FeatureShowcase() {
 
       const session: AnalysisSession = {
         project_id: data.project_id,
-        filename: data.filename || file.name,
+        filename: data.filename || activeFile.name,
         file_count: data.file_count ?? 0,
         edge_count: data.edge_count ?? 0,
         important_files: data.important_files ?? [],
@@ -116,11 +129,8 @@ export default function FeatureShowcase() {
       };
 
       saveAnalysis(session);
-      addLog("SUCCESS", "Pipeline ready. Routing to Studio Canvas...");
-
-      setTimeout(() => {
-        navigate("/chat");
-      }, 600);
+      setCompletedSession(session);
+      addLog("SUCCESS", "Pipeline ready. Codebase grounded and indexed.");
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
       addLog("ERROR", raw);
@@ -141,11 +151,14 @@ export default function FeatureShowcase() {
       {/* Hidden File Input */}
       <input
         ref={fileInputRef}
+        id="workspace-file-input"
         type="file"
         accept=".zip,application/zip"
         style={{ display: "none" }}
         onChange={(e) => {
-          validateAndSetFile(e.target.files?.[0] ?? null);
+          const isFromHero = e.target.dataset.source === "hero";
+          e.target.dataset.source = "";
+          validateAndSetFile(e.target.files?.[0] ?? null, isFromHero);
           e.target.value = "";
         }}
       />
@@ -198,18 +211,83 @@ export default function FeatureShowcase() {
                     Drop any Python (3.10–3.12) or TypeScript repository archive. ArchitectAI evaluates syntax trees in-memory without running untrusted code, extracting import graphs and ranking blast-radius gravity in seconds.
                   </p>
 
-                  {/* Staged File Action Bar */}
-                  {file ? (
-                    <div className="feature-staged-box">
-                      <div className="feature-staged-meta">
-                        <span className="feature-staged-tag">STAGED</span>
-                        <span className="feature-staged-name">{file.name}</span>
-                        <span className="feature-staged-size">({(file.size / 1024).toFixed(1)} KB)</span>
+                  {/* Staged File Action Bar / Completion Bar */}
+                  {completedSession ? (
+                    <div className="feature-staged-box is-complete">
+                      <div className="feature-staged-header">
+                        <div className="feature-staged-file-info">
+                          <div className="feature-staged-icon-wrap is-complete">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </div>
+                          <div className="feature-staged-details">
+                            <div className="feature-staged-title-row">
+                              <span className="feature-staged-name">{completedSession.filename}</span>
+                            </div>
+                            <div className="feature-staged-status-line">
+                              <span className="feature-staged-dot is-complete" />
+                              <span>ANALYSIS COMPLETE</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
+
                       <div className="feature-staged-actions">
                         <button
                           type="button"
-                          className="btn-secondary-glass"
+                          className="feature-btn-primary"
+                          onClick={() => navigate("/chat")}
+                        >
+                          <span>Open Architecture Studio</span>
+                          <span className="feature-btn-arrow">→</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="feature-btn-secondary"
+                          onClick={() => {
+                            setFile(null);
+                            setCompletedSession(null);
+                            setLogs([]);
+                            fileInputRef.current?.click();
+                          }}
+                        >
+                          Upload Different Archive
+                        </button>
+                      </div>
+                    </div>
+                  ) : file ? (
+                    <div className="feature-staged-box">
+                      <div className="feature-staged-header">
+                        <div className="feature-staged-file-info">
+                          <div className="feature-staged-icon-wrap">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                              <line x1="12" y1="22.08" x2="12" y2="12" />
+                            </svg>
+                          </div>
+                          <div className="feature-staged-details">
+                            <div className="feature-staged-title-row">
+                              <span className="feature-staged-name">{file.name}</span>
+                              <span className="feature-staged-size-badge">
+                                {file.size > 1024 * 1024
+                                  ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+                                  : `${(file.size / 1024).toFixed(1)} KB`}
+                              </span>
+                            </div>
+                            <div className="feature-staged-status-line">
+                              <span className={`feature-staged-dot ${analyzing ? "is-analyzing" : ""}`} />
+                              <span>{analyzing ? "EXTRACTING AST IN-MEMORY..." : "IN-MEMORY STAGE READY"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="feature-staged-actions">
+                        <button
+                          type="button"
+                          className="feature-btn-secondary"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={analyzing}
                         >
@@ -217,14 +295,21 @@ export default function FeatureShowcase() {
                         </button>
                         <button
                           type="button"
-                          className="feature-upload-btn feature-analyze-btn"
+                          className={`feature-btn-primary ${analyzing ? "is-analyzing" : ""}`}
                           onClick={handleAnalyze}
                           disabled={analyzing}
                         >
-                          <span className="feature-upload-btn-content">
-                            <span>{analyzing ? "Extracting AST..." : "Analyze Codebase"}</span>
-                            <span className="feature-upload-arrow">→</span>
-                          </span>
+                          {analyzing ? (
+                            <>
+                              <span className="feature-spinner" />
+                              <span>Extracting AST...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>Analyze Codebase</span>
+                              <span className="feature-btn-arrow">→</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -253,36 +338,105 @@ export default function FeatureShowcase() {
                       <strong>[PIPELINE ERROR]</strong> {error}
                     </div>
                   )}
-
-                  {logs.length > 0 && (
-                    <div className="telemetry-terminal feature-telemetry-inline">
-                      <div className="telemetry-terminal-header">
-                        <span>// PIPELINE TELEMETRY STREAM</span>
-                        <span>PORT :8000</span>
-                      </div>
-                      {logs.map((l, i) => (
-                        <div key={i} className="telemetry-log-row">
-                          <span className="telemetry-line-time">{l.time}</span>
-                          <span className="telemetry-line-tag">[{l.tag}]</span>
-                          <span>{l.message}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
-                {/* Right Column: Authentic macOS IDE Window Frame */}
+                {/* Right Column: Authentic macOS IDE Window Frame / Live Terminal Studio */}
                 <div className="feature-visual-column">
-                  <div className="feature-ide-frame">
-                    <div className="feature-ide-content">
-                      <img
-                        src={repoIngestImg}
-                        alt="Repository Ingestion IDE Window"
-                        className="feature-ide-img"
-                        loading="eager"
-                      />
+                  {file || analyzing || logs.length > 0 || completedSession ? (
+                    <div className="live-ide-window">
+                      {/* Window Header */}
+                      <div className="live-ide-header">
+                        <div className="live-ide-traffic-lights">
+                          <span className="live-ide-dot dot-red" />
+                          <span className="live-ide-dot dot-yellow" />
+                          <span className="live-ide-dot dot-green" />
+                        </div>
+                        <div className="live-ide-tab">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                          </svg>
+                          <span>{file?.name || completedSession?.filename || "repository.zip"}</span>
+                        </div>
+                        <span className={`live-ide-status-badge ${completedSession ? "is-complete" : analyzing ? "is-analyzing" : "is-staged"}`}>
+                          {completedSession ? "✓ READY" : analyzing ? "EXTRACTING" : "STAGED"}
+                        </span>
+                      </div>
+
+                      {/* Progress Bar Track */}
+                      <div className="live-ide-progress-wrap">
+                        <div className="live-ide-progress-info">
+                          <span className="live-ide-progress-label">
+                            {completedSession
+                              ? "AST Pipeline Complete • Grounded & Indexed"
+                              : analyzing
+                              ? "Compiling abstract syntax graph & import topology..."
+                              : "Archive loaded in-memory • Ready to compile AST"}
+                          </span>
+                          <span className="live-ide-progress-pct">
+                            {completedSession ? "100%" : analyzing ? "85%" : "0%"}
+                          </span>
+                        </div>
+                        <div className="live-ide-progress-track">
+                          <div
+                            className={`live-ide-progress-fill ${analyzing ? "is-pulsing" : ""}`}
+                            style={{ width: completedSession ? "100%" : analyzing ? "85%" : "15%" }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Terminal Stream */}
+                      <div className="live-ide-terminal-body">
+                        {logs.map((l, i) => (
+                          <div key={i} className="live-log-row">
+                            <span className="live-log-time">{l.time}</span>
+                            <span className={`live-log-tag tag-${l.tag.toLowerCase()}`}>[{l.tag}]</span>
+                            <span className="live-log-msg">{l.message}</span>
+                          </div>
+                        ))}
+                        {analyzing && (
+                          <div className="live-ide-cursor-row">
+                            <span className="live-ide-cursor">▋</span>
+                            <span>resolving file hierarchy & import edges...</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Completion Metrics & Action Card */}
+                      {completedSession && (
+                        <div className="live-ide-results-card">
+                          <div className="live-ide-metrics-grid">
+                            <div className="live-ide-metric">
+                              <span className="live-ide-metric-num">{completedSession.file_count}</span>
+                              <span className="live-ide-metric-label">Source Files</span>
+                            </div>
+                            <div className="live-ide-metric">
+                              <span className="live-ide-metric-num">{completedSession.edge_count}</span>
+                              <span className="live-ide-metric-label">Import Edges</span>
+                            </div>
+                            <div className="live-ide-metric">
+                              <span className="live-ide-metric-num">{completedSession.circular_deps?.length || 0}</span>
+                              <span className="live-ide-metric-label">Circular Traps</span>
+                            </div>
+                            <div className="live-ide-metric">
+                              <span className="live-ide-metric-num">{completedSession.chunk_count}</span>
+                              <span className="live-ide-metric-label">Vector Chunks</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  ) : (
+                    <div className="feature-ide-frame">
+                      <div className="feature-ide-content">
+                        <img
+                          src={repoIngestImg}
+                          alt="Repository Ingestion IDE Window"
+                          className="feature-ide-img"
+                          loading="eager"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
