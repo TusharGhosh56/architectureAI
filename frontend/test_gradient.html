@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #000; color: #fff; font-family: sans-serif; overflow-x: hidden; }
+
+  /* Test Canvas */
+  .site-canvas {
+    position: relative;
+    width: 100%;
+    min-height: 400vh;
+    background-color: #000000;
+    background-image:
+      /* Layer 1: Top Eclipse Horizon */
+      radial-gradient(120% 950px at 50% 100px, #000000 38%, #6633ee 72%, rgba(102, 51, 238, 0.45) 90%, transparent 100%),
+      /* Layer 2: Flowing Curtain of Violet Light */
+      radial-gradient(1100px 750px at 65% 1300px, rgba(124, 58, 237, 0.4) 0%, rgba(99, 102, 241, 0.15) 50%, transparent 75%),
+      /* Layer 3: Flowing Indigo Wave */
+      radial-gradient(1200px 800px at 30% 2200px, rgba(102, 51, 238, 0.35) 0%, rgba(79, 70, 229, 0.12) 50%, transparent 75%),
+      /* Layer 4: Deep Auroral Curtain */
+      radial-gradient(1100px 750px at 70% 3100px, rgba(139, 92, 246, 0.35) 0%, rgba(99, 102, 241, 0.1) 50%, transparent 75%),
+      /* Layer 5: Studio Soft Wave */
+      radial-gradient(1000px 700px at 45% 3900px, rgba(102, 51, 238, 0.3) 0%, transparent 70%),
+      /* Layer 6: Vertical Ambient Ribbon connecting them */
+      linear-gradient(180deg, 
+        transparent 0px, 
+        transparent 500px, 
+        rgba(102, 51, 238, 0.25) 850px, 
+        rgba(124, 58, 237, 0.2) 1600px, 
+        rgba(99, 102, 241, 0.18) 2500px, 
+        rgba(139, 92, 246, 0.15) 3400px, 
+        transparent 4200px
+      );
+    background-repeat: no-repeat;
+  }
+
+  .section {
+    height: 90vh;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 5vw;
+    border-bottom: 1px dashed rgba(255,255,255,0.05); /* very faint guide */
+  }
+
+  .box-left {
+    max-width: 500px;
+  }
+
+  .box-right {
+    width: 600px;
+    height: 380px;
+    background: rgba(13, 17, 23, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.8), 0 0 40px rgba(102,51,238,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
+</head>
+<body>
+  <div class="site-canvas">
+    <div class="section">
+      <div class="box-left">
+        <h1 style="font-size: 3rem; margin-bottom: 1rem;">Hero Section</h1>
+        <p style="color: #94a3b8; font-size: 1.2rem;">Map the unmapped. Grounded codebase architecture.</p>
+      </div>
+      <div class="box-right">Hero Visual Window</div>
+    </div>
+    <div class="section">
+      <div class="box-left">
+        <h2 style="font-size: 2.5rem; margin-bottom: 1rem;">Section 1: Ingestion Workspace</h2>
+        <p style="color: #94a3b8; font-size: 1.1rem;">Analyze any codebase. Zero code execution.</p>
+      </div>
+      <div class="box-right">Dropstage Window</div>
+    </div>
+    <div class="section">
+      <div class="box-left">
+        <h2 style="font-size: 2.5rem; margin-bottom: 1rem;">Section 2: Blast Radius DAG</h2>
+        <p style="color: #94a3b8; font-size: 1.1rem;">Quantify blast radius before you refactor.</p>
+      </div>
+      <div class="box-right">DAG Graph Window</div>
+    </div>
+    <div class="section">
+      <div class="box-left">
+        <h2 style="font-size: 2.5rem; margin-bottom: 1rem;">Section 3: Cycle Audit</h2>
+        <p style="color: #94a3b8; font-size: 1.1rem;">Expose circular traps. Prevent runtime deadlocks.</p>
+      </div>
+      <div class="box-right">Audit Window</div>
+    </div>
+  </div>
+</body>
+</html>

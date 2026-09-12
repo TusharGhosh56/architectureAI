@@ -38,11 +38,10 @@ def complete_gemini(system: str, user: str, model: str | None = None) -> str:
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY is missing.")
 
-    # Sanitize model name (e.g. gemini-2.5-flash or gemini-1.5-flash)
-    raw_model = model or settings.gemini_model or "gemini-2.5-flash"
-    # Ensure recognized model format
+    # Sanitize model name (e.g. gemini-2.0-flash or gemini-1.5-flash)
+    raw_model = model or settings.gemini_model or "gemini-2.0-flash"
     if "gemini" not in raw_model.lower():
-        raw_model = "gemini-2.5-flash"
+        raw_model = "gemini-2.0-flash"
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{raw_model}:generateContent"
 
@@ -71,15 +70,16 @@ def complete_gemini(system: str, user: str, model: str | None = None) -> str:
             headers={"Content-Type": "application/json"},
         )
         if resp.status_code != 200:
-            # If specified model was rejected (e.g. 404), retry with gemini-2.5-flash or gemini-1.5-flash
-            if raw_model != "gemini-2.5-flash":
-                url_fallback = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
-                resp = client.post(
-                    url_fallback,
-                    params={"key": api_key},
-                    json=payload,
-                    headers={"Content-Type": "application/json"},
-                )
+            for fallback in ["gemini-2.0-flash", "gemini-1.5-flash"]:
+                if raw_model != fallback:
+                    resp = client.post(
+                        f"https://generativelanguage.googleapis.com/v1beta/models/{fallback}:generateContent",
+                        params={"key": api_key},
+                        json=payload,
+                        headers={"Content-Type": "application/json"},
+                    )
+                    if resp.status_code == 200:
+                        break
         resp.raise_for_status()
         data = resp.json()
 

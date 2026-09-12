@@ -1,227 +1,150 @@
-import { useRef, useState } from "react";
+import Navbar from "../components/Navbar";
+import ArchitectCanvas from "../components/ArchitectCanvas";
+import FeatureShowcase from "../components/FeatureShowcase";
+import HowItWorks from "../components/HowItWorks";
+import LoopingWords from "../components/LoopingWords";
+import { LogoIcon } from "../components/Icons";
 import { Link } from "react-router-dom";
-import gsap from "gsap";
-import { useGSAP } from "@gsap/react";
-import heroArt from "../assets/hero.png";
-import { saveAnalysis, type AnalysisSession } from "../lib/session";
-
-gsap.registerPlugin(useGSAP);
-
-type Phase = "idle" | "ready" | "analyzing" | "done";
-
-type UploadApiResult = AnalysisSession & {
-  status: string;
-  truncated?: boolean;
-};
 
 export default function LandingPage() {
-  const rootRef = useRef<HTMLElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [file, setFile] = useState<File | null>(null);
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [doneMeta, setDoneMeta] = useState<{ name: string; files: number } | null>(null);
-
-  useGSAP(
-    () => {
-      const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
-      tl.from(".brand", { y: 36, opacity: 0, duration: 0.75 })
-        .from(".hero-copy", { y: 18, opacity: 0, duration: 0.55 }, "-=0.4")
-        .from(".hero-points li", { y: 12, opacity: 0, stagger: 0.08, duration: 0.45 }, "-=0.3")
-        .from(".hero-actions", { y: 12, opacity: 0, duration: 0.45 }, "-=0.25")
-        .from(".hero-visual", { x: 24, opacity: 0, duration: 0.7 }, 0.15);
-    },
-    { scope: rootRef },
-  );
-
-  function onPickFile(selected: File | null) {
-    setError(null);
-    setDoneMeta(null);
-    if (!selected) {
-      setFile(null);
-      setPhase("idle");
-      return;
-    }
-    if (!selected.name.toLowerCase().endsWith(".zip")) {
-      setError("Please choose a .zip of your project.");
-      setFile(null);
-      setPhase("idle");
-      return;
-    }
-    setFile(selected);
-    setPhase("ready");
-  }
-
-  async function onAnalyze() {
-    if (!file) {
-      setError("Upload a project zip first.");
-      return;
-    }
-    setPhase("analyzing");
-    setError(null);
-    try {
-      const body = new FormData();
-      body.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body });
-      let data: { detail?: unknown } & Partial<UploadApiResult>;
-      try {
-        data = await res.json();
-      } catch {
-        throw new Error(
-          res.ok
-            ? "Analyze finished but response was not JSON."
-            : `Analyze failed (HTTP ${res.status}). Is the backend on :8000?`,
-        );
-      }
-      if (!res.ok) {
-        const detail = data.detail;
-        throw new Error(
-          typeof detail === "string"
-            ? detail
-            : `Analyze failed (HTTP ${res.status})`,
-        );
-      }
-
-      const session: AnalysisSession = {
-        project_id: data.project_id!,
-        filename: data.filename || file.name,
-        file_count: data.file_count ?? 0,
-        edge_count: data.edge_count ?? 0,
-        important_files: data.important_files ?? [],
-        circular_deps: data.circular_deps ?? [],
-        diagram_mermaid: data.diagram_mermaid ?? "",
-        architecture_summary: data.architecture_summary ?? "",
-        chunk_count: data.chunk_count ?? 0,
-      };
-      saveAnalysis(session);
-      setDoneMeta({ name: session.filename, files: session.file_count });
-      setPhase("done");
-    } catch (err) {
-      const raw = err instanceof Error ? err.message : String(err);
-      if (raw === "Failed to fetch" || /NetworkError|fetch/i.test(raw)) {
-        setError(
-          "Lost connection during analysis. Zip source only (no .venv/node_modules), then retry.",
-        );
-      } else {
-        setError(raw);
-      }
-      setPhase(file ? "ready" : "idle");
-    }
-  }
-
   return (
-    <main className="landing" ref={rootRef}>
-      <section className="hero" aria-label="ArchitectAI hero">
-        <div className="hero-grid" aria-hidden />
-        <div className="hero-inner">
-          <div className="hero-copy-block">
-            <h1 className="brand">ArchitectAI</h1>
-            <p className="hero-copy">
-              Upload a project zip, extract a real dependency graph, then chat with an
-              agent that answers from your code — not guesses.
+    <main className="site-cosmic-canvas">
+      {/* Top Sticky Glass Navigation */}
+      <Navbar />
+
+      {/* Hero Section with Deep Purple Eclipse Horizon */}
+      <div className="hero-viewport-wrapper">
+        <section className="hero-split-container">
+          {/* Left Column: Hero Content & Actions */}
+          <div className="hero-content-left">
+            <h1 className="hero-heading-left">
+              Map the unmapped.
+              <br />
+              <span style={{ color: "#cbd5e1" }}>Decode</span>
+              <LoopingWords
+                words={[
+                  "blast radius.",
+                  "circular traps.",
+                  "architecture.",
+                  "dependencies.",
+                  "deadlocks.",
+                ]}
+              />
+            </h1>
+
+            <p className="hero-subheadline-left">
+              Upload any repository archive. ArchitectAI analyzes your Python and TypeScript Abstract Syntax Trees,
+              ranks blast-radius gravity, flags circular dependency traps, and lets you interrogate your system with zero-hallucination code grounding.
             </p>
-            <ul className="hero-points">
-              <li>AST-based import mapping for Python and JS/TS</li>
-              <li>Local embeddings + vector search over your functions</li>
-              <li>Guided chat for graphs, core files, and architecture questions</li>
-            </ul>
-            <div className="hero-actions">
-              <a className="btn btn-light" href="#workspace">
-                Start with a zip
-              </a>
+
+            <div className="hero-actions-left">
+              <button
+                type="button"
+                className="btn-border-beam-wrapper"
+                onClick={() => {
+                  const fileInput = document.getElementById("workspace-file-input") as HTMLInputElement | null;
+                  if (fileInput) {
+                    fileInput.dataset.source = "hero";
+                    fileInput.click();
+                  } else {
+                    document.getElementById("workspace")?.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
+              >
+                <span className="btn-border-beam-core">
+                  <span>Analyze Codebase (.zip)</span>
+                  <span style={{ color: "var(--accent-teal)", fontWeight: 700 }}>→</span>
+                </span>
+              </button>
             </div>
           </div>
-          <div className="hero-visual" aria-hidden>
-            <img src={heroArt} alt="" />
-          </div>
+
+          {/* Right Column: Oversized Repository Window (Fills Hero Height & Bleeds Offscreen) */}
+          <ArchitectCanvas />
+        </section>
+      </div>
+
+      {/* Post-Hero Seamless Flowing Cosmic Curtain */}
+      <div className="site-flowing-curtain">
+        {/* Section 00: 4-Stage Architectural Compilation Engine (Tactile Pinned Pipeline) */}
+        <HowItWorks />
+
+        {/* Section 01: Unified Interactive Feature & Ingestion Showcase */}
+        <div id="features">
+          <FeatureShowcase />
         </div>
-      </section>
+      </div>
 
-      <section className="workflow" id="workspace">
-        <h2>Upload, analyze, then chat</h2>
-        <p className="workflow-lead">
-          Results stay out of this page on purpose — once analysis finishes, continue in
-          chat for diagrams, core files, and FAQs.
-        </p>
-
-        <div className="steps">
-          <div className="step">
-            <span className="step-num">1</span>
-            <div>
-              <h3>Upload</h3>
-              <p>Attach a .zip of your project source (skip venv and node_modules).</p>
-            </div>
-          </div>
-          <div className="step">
-            <span className="step-num">2</span>
-            <div>
-              <h3>Analyze</h3>
-              <p>We parse imports, build the graph, embed code, and draft a short summary.</p>
-            </div>
-          </div>
-          <div className="step">
-            <span className="step-num">3</span>
-            <div>
-              <h3>Chat</h3>
-              <p>Ask guided questions — graphs and answers live there, not here.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel">
-          <p className="panel-label">Workspace</p>
-
-          <div className="file-row">
-            <input
-              ref={fileRef}
-              id="zip"
-              className="file-input"
-              type="file"
-              accept=".zip,application/zip"
-              onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
-            />
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => fileRef.current?.click()}
-              disabled={phase === "analyzing"}
-            >
-              {file ? "Change zip" : "Upload zip"}
-            </button>
-            <span className="file-name">
-              {file ? file.name : "No file chosen yet"}
-            </span>
-          </div>
-
-          <div className="actions-row">
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={onAnalyze}
-              disabled={!file || phase === "analyzing"}
-            >
-              {phase === "analyzing" ? "Analyzing…" : phase === "done" ? "Re-analyze" : "Analyze"}
-            </button>
-            {phase === "ready" && (
-              <span className="file-name">Ready — click Analyze to run the pipeline.</span>
-            )}
-          </div>
-
-          {error && <p className="error-text">{error}</p>}
-
-          {phase === "done" && doneMeta && (
-            <div className="status-ok">
-              <p>
-                <strong>Analysis complete.</strong> Parsed {doneMeta.files} source files
-                from {doneMeta.name}. Open chat to explore the graph and ask questions.
+      {/* Modern Developer Footer */}
+      <footer className="developer-footer">
+        <div className="footer-container">
+          {/* Main Footer 4-Column Grid */}
+          <div className="footer-grid">
+            {/* Col 1: Brand & Philosophy */}
+            <div className="footer-brand-col">
+              <div className="footer-brand-header">
+                <LogoIcon size={26} />
+                <span className="footer-brand-name">
+                  Architect<span style={{ color: "#38bdf8" }}>AI</span>
+                </span>
+              </div>
+              <p className="footer-brand-desc">
+                Autonomous codebase architecture intelligence. Transforming opaque multi-tier repositories into verified dependency graphs, cycle audits, and zero-hallucination code reasoning.
               </p>
-              <Link className="btn btn-primary" to="/chat">
-                Go to chat →
-              </Link>
             </div>
-          )}
+
+            {/* Col 2: Capabilities */}
+            <div className="footer-nav-col">
+              <h4 className="footer-col-title">Capabilities</h4>
+              <ul className="footer-link-list">
+                <li><a href="/#features">In-Memory Ingestion</a></li>
+                <li><a href="/#features">Dependency Topology</a></li>
+                <li><a href="/#features">Cycle Detection Audit</a></li>
+                <li><Link to="/chat">AI Studio Canvas</Link></li>
+                <li><a href="/#features">Impact & Blast Radius</a></li>
+              </ul>
+            </div>
+
+            {/* Col 3: Engine Core */}
+            <div className="footer-nav-col">
+              <h4 className="footer-col-title">Engine Core</h4>
+              <ul className="footer-link-list">
+                <li><span>Python AST (3.10–3.12)</span></li>
+                <li><span>TypeScript SWC Parser</span></li>
+                <li><span>Deterministic Grounding</span></li>
+                <li><span>Mermaid.js Compiler</span></li>
+                <li><span>O(V+E) Graph Propagation</span></li>
+              </ul>
+            </div>
+
+            {/* Col 4: Platform */}
+            <div className="footer-nav-col">
+              <h4 className="footer-col-title">Platform</h4>
+              <ul className="footer-link-list">
+                <li><Link to="/">Workbench Studio</Link></li>
+                <li><Link to="/chat">Canvas Playground</Link></li>
+                <li><a href="https://github.com" target="_blank" rel="noreferrer">GitHub Repository</a></li>
+                <li><a href="#features">Demo Codebases</a></li>
+                <li><span style={{ color: "var(--text-faint)", fontSize: "12px" }}>MIT Licensed Open Core</span></li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Sub-Footer Bottom Bar */}
+          <div className="footer-bottom-bar">
+            <div className="footer-copyright">
+              © 2026 ArchitectAI. Built for engineering teams refactoring mission-critical codebases.
+            </div>
+            <div className="footer-legal-links">
+              <span>Deterministic In-Memory Isolation</span>
+              <span className="footer-separator">·</span>
+              <span>Zero Execution Security</span>
+              <span className="footer-separator">·</span>
+              <span className="footer-latency-badge">18ms AST Latency</span>
+            </div>
+          </div>
         </div>
-      </section>
+      </footer>
     </main>
   );
 }
