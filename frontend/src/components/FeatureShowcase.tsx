@@ -1,6 +1,8 @@
 import { useState, useRef, type DragEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { saveAnalysis, loadAnalysis, type AnalysisSession } from "../lib/session";
+import { apiUrl, API_BASE_URL } from "../lib/api";
+import { optimizeZipArchive } from "../lib/zipOptimizer";
 
 import repoIngestImg from "../assets/repo_ingest.jpg";
 import userTopologyImg from "../assets/topology_graph.jpg";
@@ -91,11 +93,26 @@ export default function FeatureShowcase() {
     addLog("PARSER", "Filtering exclusions (node_modules, .venv, .git, vendor)...");
 
     try {
-      const body = new FormData();
-      body.append("file", activeFile);
+      let uploadFile = activeFile;
+      if (activeFile.size > 2 * 1024 * 1024) {
+        addLog(
+          "PARSER",
+          `Pre-filtering archive (${(activeFile.size / (1024 * 1024)).toFixed(1)} MB) to strip node_modules, .git, and binaries...`,
+        );
+        const opt = await optimizeZipArchive(activeFile);
+        uploadFile = opt.file;
+        addLog(
+          "PARSER",
+          `Optimized archive to ${(uploadFile.size / (1024 * 1024)).toFixed(2)} MB (${opt.filesKept} source files kept).`,
+        );
+      }
 
-      addLog("NETWORK", "Streaming archive to backend pipeline on :8000...");
-      const res = await fetch("/api/upload", { method: "POST", body });
+      const body = new FormData();
+      body.append("file", uploadFile);
+
+      const targetLabel = API_BASE_URL || (window.location.hostname === "localhost" ? ":8000" : window.location.origin);
+      addLog("NETWORK", `Streaming archive to backend pipeline (${targetLabel})...`);
+      const res = await fetch(apiUrl("/api/upload"), { method: "POST", body });
 
       let data: any;
       try {
@@ -104,7 +121,11 @@ export default function FeatureShowcase() {
         throw new Error(
           res.ok
             ? "Extraction completed but server response was not JSON."
-            : `Pipeline unreachable (HTTP ${res.status}). Ensure backend is active on :8000`,
+            : `Pipeline unreachable (HTTP ${res.status}). ${
+                window.location.hostname !== "localhost" && !API_BASE_URL
+                  ? "Vercel static hosting requires a live backend. Set VITE_API_URL in your Vercel Project Settings to your deployed backend."
+                  : "Ensure backend server is running on :8000."
+              }`,
         );
       }
 
@@ -647,14 +668,25 @@ export default function FeatureShowcase() {
           <div className="workspace-active-session-bar">
             <div>
               <div className="active-session-label">
-                ACTIVE SESSION: {activeSession.filename}
+                <span className="active-session-tag">
+                  <span className="active-session-dot" />
+                  Active Session
+                </span>
+                <span style={{ color: "#ffffff", fontWeight: 700 }}>
+                  {activeSession.filename}
+                </span>
               </div>
               <div className="active-session-meta">
-                {activeSession.file_count} nodes · {activeSession.edge_count} edges
+                <span>{activeSession.file_count} nodes</span>
+                <span style={{ color: "rgba(255, 255, 255, 0.2)" }}>·</span>
+                <span>{activeSession.edge_count} edges</span>
+                <span style={{ color: "rgba(255, 255, 255, 0.2)" }}>·</span>
+                <span style={{ color: "var(--accent-teal)" }}>Ready in Memory</span>
               </div>
             </div>
             <Link to="/chat" className="active-session-link">
-              Open Studio Canvas →
+              <span>Open Studio Canvas</span>
+              <span>→</span>
             </Link>
           </div>
         )}
