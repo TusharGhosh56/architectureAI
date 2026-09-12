@@ -218,6 +218,8 @@ def _call_gemini(
     import httpx
 
     raw_model = model.strip() if model else "gemini-3.6-flash"
+    if "gemini" not in raw_model.lower() or raw_model in ("gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"):
+        raw_model = "gemini-3.6-flash"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{raw_model}:generateContent"
     with httpx.Client(timeout=15.0) as http_client:
         resp = http_client.post(
@@ -357,14 +359,7 @@ def run_chat_agent(
 
     llm_err: str | None = None
 
-    # 1. Prefer Groq (fastest, robust, tested in < 1 second)
-    if settings.groq_api_key:
-        try:
-            return _run_groq_agent(message, project_id, fallback_analysis, target_file)
-        except Exception as exc:
-            llm_err = f"Groq returned {exc}"
-
-    # 2. Fall back to Gemini
+    # 1. Prefer Gemini if configured (sub-second latency, verified active)
     if settings.gemini_api_key:
         try:
             req_body = {
@@ -378,7 +373,14 @@ def run_chat_agent(
                 texts = [p.get("text", "") for p in parts if "text" in p]
                 return {"message": "".join(texts).strip(), "mermaid": None, "inferred": False}
         except Exception as exc:
-            llm_err = f"Gemini returned {exc}"
+            llm_err = f"Gemini ({exc})"
+
+    # 2. Try Groq
+    if settings.groq_api_key:
+        try:
+            return _run_groq_agent(message, project_id, fallback_analysis, target_file)
+        except Exception as exc:
+            llm_err = f"Groq ({exc})"
 
     # 3. Deterministic Grounded AST Fallback
     return _build_grounded_response(message, project_id, project_data, fallback_analysis, target_file, llm_error=llm_err)
