@@ -14,14 +14,15 @@ from app.config import get_settings
 @lru_cache
 def get_groq_client() -> Any:
     settings = get_settings()
-    if not settings.groq_api_key:
+    raw_key = (settings.groq_api_key or "").strip().strip("'").strip('"')
+    if not raw_key:
         raise RuntimeError(
             "GROQ_API_KEY is missing. Add it to .env or set USE_OLLAMA=true."
         )
 
     from groq import Groq
 
-    return Groq(api_key=settings.groq_api_key)
+    return Groq(api_key=raw_key)
 
 
 def llm_configured() -> bool:

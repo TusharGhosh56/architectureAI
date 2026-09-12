@@ -25,13 +25,28 @@ def generate_architecture_summary(
     circular_deps: list[list[str]],
     manifest: ProjectManifest | None = None,
 ) -> str:
-    if not llm_configured():
-        return (
-            "LLM not configured — set GEMINI_API_KEY in .env to generate an architecture summary. "
-            f"Analyzed {file_count} source files. Core files: {', '.join(important[:5]) or 'n/a'}."
-        )
-
     manifest_context = manifest.to_prompt_context() if manifest else ""
+    framework = manifest.framework if manifest and manifest.framework else "modular"
+    pkg_name = manifest.name if manifest and manifest.name else ""
+
+    def build_heuristic_summary(note: str = "") -> str:
+        core_preview = ", ".join(important[:6]) if important else "distributed across source files"
+        loop_status = (
+            f"{len(circular_deps)} circular dependency cycle(s) detected"
+            if circular_deps
+            else "Clean dependency hierarchy with zero circular dependency loops"
+        )
+        base = (
+            f"Codebase consists of {file_count} source files structured around a {framework} architecture"
+            + (f" ({pkg_name})." if pkg_name else ".")
+            + f" Top-ranked central components by dependency in-degree: {core_preview}. {loop_status}."
+        )
+        if note:
+            return f"{base}\n\n(AI note: {note} — verify GROQ_API_KEY or GEMINI_API_KEY in backend environment variables for generative narrative summaries)."
+        return base
+
+    if not llm_configured():
+        return build_heuristic_summary("LLM API key not configured")
 
     rag_bits: list[str] = []
     try:
@@ -68,4 +83,11 @@ def generate_architecture_summary(
     try:
         return complete(SYSTEM, user)
     except Exception as exc:
-        return f"Summary generation failed ({exc}). Core files: {', '.join(important[:5]) or 'n/a'}."
+        err_msg = str(exc)
+        if "401" in err_msg or "invalid_api_key" in err_msg.lower():
+            note = "Configured API key is invalid or expired"
+        elif "429" in err_msg or "rate" in err_msg.lower():
+            note = "API rate limit reached"
+        else:
+            note = "LLM provider unreachable"
+        return build_heuristic_summary(note)
