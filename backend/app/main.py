@@ -1,7 +1,7 @@
 import mimetypes
 from pathlib import Path
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import chat, upload
@@ -16,9 +16,27 @@ app = FastAPI(
     version="0.1.0",
 )
 
+@app.middleware("http")
+async def vercel_rewrite_middleware(request: Request, call_next):
+    raw_path = request.scope.get("path", "")
+    if raw_path in ("/api/index.py", "/api/index", "/api", ""):
+        target = (
+            request.query_params.get("__path")
+            or request.headers.get("x-matched-path")
+            or request.headers.get("x-forwarded-uri")
+            or request.headers.get("x-original-url")
+        )
+        if target:
+            clean = target.split("?")[0]
+            if clean and clean not in ("/api/index.py", "/api/index"):
+                request.scope["path"] = clean
+
+    return await call_next(request)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -29,6 +47,7 @@ app.include_router(chat.router)
 
 
 @app.get("/api/health")
+@app.get("/health")
 def health() -> dict:
     return {
         "status": "ok",
@@ -126,6 +145,9 @@ def serve_icons() -> Response:
 
 
 @app.get("/")
+@app.get("/api")
+@app.get("/api/")
+@app.get("/api/index.py")
 def serve_root() -> Response:
     d = get_dist_dir()
     if d and (d / "index.html").is_file():

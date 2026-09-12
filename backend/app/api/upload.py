@@ -11,9 +11,10 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 from app.analysis.extract import UnsafeZipError
 from app.analysis.pipeline import run_pipeline
 
-router = APIRouter(prefix="/api", tags=["upload"])
+router = APIRouter(tags=["upload"])
 
 
+@router.post("/api/upload")
 @router.post("/upload")
 async def upload_project(file: UploadFile = File(...)) -> dict:
     if not file.filename or not file.filename.lower().endswith(".zip"):

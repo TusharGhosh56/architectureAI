@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.agents.chat_agent import run_chat_agent
 
-router = APIRouter(prefix="/api", tags=["chat"])
+router = APIRouter(tags=["chat"])
 
 
 class ChatRequest(BaseModel):
@@ -16,6 +16,7 @@ class ChatRequest(BaseModel):
     analysis: dict[str, Any] | None = None
 
 
+@router.post("/api/chat")
 @router.post("/chat")
 async def chat(body: ChatRequest) -> dict:
     """Agentic chat endpoint with tool-calling support."""
