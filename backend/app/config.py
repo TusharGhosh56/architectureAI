@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model: str = "qwen/qwen3.8-27b"
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-3.6-flash"
     use_ollama: bool = False
     ollama_model: str = "llama3.1"
     ollama_base_url: str = "http://localhost:11434"

@@ -39,10 +39,10 @@ def complete_gemini(system: str, user: str, model: str | None = None) -> str:
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY is missing.")
 
-    # Sanitize model name (e.g. gemini-2.0-flash or gemini-1.5-flash)
-    raw_model = model or settings.gemini_model or "gemini-2.0-flash"
+    # Sanitize model name (prefer gemini-3.6-flash)
+    raw_model = model or settings.gemini_model or "gemini-3.6-flash"
     if "gemini" not in raw_model.lower():
-        raw_model = "gemini-2.0-flash"
+        raw_model = "gemini-3.6-flash"
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{raw_model}:generateContent"
 
@@ -71,7 +71,7 @@ def complete_gemini(system: str, user: str, model: str | None = None) -> str:
             headers={"Content-Type": "application/json"},
         )
         if resp.status_code != 200:
-            for fallback in ["gemini-2.0-flash", "gemini-1.5-flash"]:
+            for fallback in ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]:
                 if raw_model != fallback:
                     resp = client.post(
                         f"https://generativelanguage.googleapis.com/v1beta/models/{fallback}:generateContent",

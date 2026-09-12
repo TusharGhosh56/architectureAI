@@ -214,18 +214,30 @@ def _call_gemini(
     model: str,
     req_body: dict[str, Any],
 ) -> dict[str, Any]:
-    """Execute generateContent call to Gemini REST API with strict timeout."""
+    """Execute generateContent call to Gemini REST API with fallback."""
     import httpx
 
     raw_model = model.strip() if model else "gemini-3.6-flash"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{raw_model}:generateContent"
-    with httpx.Client(timeout=6.0) as http_client:
+    with httpx.Client(timeout=15.0) as http_client:
         resp = http_client.post(
             url,
             params={"key": api_key},
             json=req_body,
             headers={"Content-Type": "application/json"},
         )
+        if resp.status_code != 200:
+            for fallback in ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]:
+                if fallback != raw_model:
+                    fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/{fallback}:generateContent"
+                    resp = http_client.post(
+                        fallback_url,
+                        params={"key": api_key},
+                        json=req_body,
+                        headers={"Content-Type": "application/json"},
+                    )
+                    if resp.status_code == 200:
+                        break
         resp.raise_for_status()
         return resp.json()
 
