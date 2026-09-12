@@ -6,6 +6,7 @@ import MermaidDiagram from "../components/MermaidDiagram";
 import { answerFromAnalysis, SUGGESTED_PROMPTS } from "../lib/chatLocal";
 import { loadAnalysis } from "../lib/session";
 import { SAMPLE_PROJECTS } from "../lib/samples";
+import { apiUrl } from "../lib/api";
 
 type Msg = {
   id: string;
@@ -123,7 +124,7 @@ export default function ChatPage() {
     try {
       let data: any = null;
       try {
-        const res = await fetch("/api/chat", {
+        const res = await fetch(apiUrl("/api/chat"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

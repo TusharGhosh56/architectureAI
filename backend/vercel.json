@@ -1,15 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "node build.js",
-  "outputDirectory": "frontend/dist",
   "rewrites": [
     {
-      "source": "/api/(.*)",
+      "source": "/(.*)",
       "destination": "/api/index.py"
-    },
-    {
-      "source": "/((?!assets|favicon\\.svg|icons\\.svg).*)",
-      "destination": "/index.html"
     }
   ]
 }
