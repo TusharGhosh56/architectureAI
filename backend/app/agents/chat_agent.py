@@ -230,6 +230,101 @@ def _call_gemini(
         return resp.json()
 
 
+def _build_grounded_response(
+    message: str,
+    project_id: str,
+    project_data: dict[str, Any],
+    fallback_analysis: dict[str, Any] | None = None,
+    target_file: str | None = None,
+    llm_error: str | None = None,
+) -> dict[str, Any]:
+    q = message.lower().strip()
+    files_count = project_data.get("file_count") or 0
+    edges_count = project_data.get("edge_count") or 0
+    core_files = project_data.get("important_files") or []
+    pkg_name = project_data.get("filename") or "this codebase"
+    cycles = project_data.get("circular_deps") or []
+
+    # 1. Target file enquiry
+    if target_file:
+        dep_res = execute_tool("get_file_dependencies", {"file_path": target_file}, project_id, fallback_analysis)
+        search_res = execute_tool("search_codebase", {"query": target_file, "k": 2}, project_id, fallback_analysis)
+        search_hits = search_res.get("hits", [])
+        return {
+            "message": _format_file_dependency_report(target_file, dep_res, project_data, search_hits),
+            "mermaid": None,
+            "inferred": False,
+        }
+
+    # 2. Greeting / Introduction / About yourself
+    if any(k in q for k in ["yourself", "urself", "who are you", "what are you", "hello", "hi", "hey", "intro"]):
+        core_preview = ", ".join(core_files[:4]) if core_files else "distributed modules"
+        msg = (
+            f"Hello! I am **ArchitectAI**, an automated codebase architecture pairing assistant.\n\n"
+            f"I evaluate repository syntax trees in-memory with zero untrusted code execution. "
+            f"For **{pkg_name}**, I have mapped **{files_count} files** and **{edges_count} import relationships**, "
+            f"identifying central hubs like `{core_preview}`.\n\n"
+            f"You can ask me to:\n"
+            f"• Explain any file's blast radius and callers (e.g., `explain {core_files[0] if core_files else 'index.ts'}`)\n"
+            f"• Generate dependency diagrams (`/graph`)\n"
+            f"• Audit circular imports (`/cycles`)\n"
+            f"• View core architectural hubs (`/core`)"
+        )
+        return {"message": msg, "mermaid": None, "inferred": False}
+
+    # 3. Diagram / Graph
+    if any(k in q for k in ["diagram", "graph", "mermaid", "visualize", "chart", "/graph"]):
+        tool_res = execute_tool("generate_diagram", {"scope": "all"}, project_id, fallback_analysis)
+        return {
+            "message": f"Generated dependency topology graph for **{pkg_name}** ({files_count} nodes):",
+            "mermaid": tool_res.get("mermaid"),
+            "inferred": False,
+        }
+
+    # 4. Circular dependencies
+    if any(k in q for k in ["circular", "cycle", "loop", "/cycles"]):
+        if cycles:
+            c_list = "\n".join(f"{i+1}. {' → '.join(c)}" for i, c in enumerate(cycles[:8]))
+            return {"message": f"Detected circular dependency cycle(s) in **{pkg_name}**:\n{c_list}", "mermaid": None, "inferred": False}
+        return {"message": f"Verified: **{pkg_name}** has a clean directed acyclic graph with **zero circular dependency loops**.", "mermaid": None, "inferred": False}
+
+    # 5. Core / Important files
+    if any(k in q for k in ["core", "important", "central", "main files", "/core"]):
+        if core_files:
+            c_list = "\n".join(f"• `{f}`" for f in core_files[:10])
+            return {"message": f"Top central components in **{pkg_name}** by dependency in-degree:\n{c_list}", "mermaid": None, "inferred": False}
+        return {"message": "Architecture has a flat or distributed dependency structure.", "mermaid": None, "inferred": False}
+
+    # 6. Overview / Summary / What is this project
+    if any(k in q for k in ["what", "summary", "overview", "project", "explain", "architecture", "/overview"]):
+        summary = project_data.get("architecture_summary")
+        if summary:
+            return {"message": summary, "mermaid": None, "inferred": False}
+
+    # 7. General search fallback
+    search_res = execute_tool("search_codebase", {"query": message, "k": 3}, project_id, fallback_analysis)
+    hits = search_res.get("hits", [])
+    if hits:
+        hit_text = "\n\n".join(f"• **{h.get('metadata', {}).get('file', '')}**\n```\n{(h.get('text') or '')[:250]}\n```" for h in hits)
+        return {
+            "message": f"Found relevant codebase symbols for '{message}':\n\n{hit_text}",
+            "mermaid": None,
+            "inferred": False,
+        }
+
+    note_text = f"\n\n*(Note: {llm_error} — set a valid GROQ_API_KEY or GEMINI_API_KEY in backend environment variables for full conversational LLM chat)*" if llm_error else ""
+    return {
+        "message": (
+            f"Analyzed **{pkg_name}** ({files_count} files, {edges_count} imports). "
+            f"Core components: {', '.join(core_files[:5]) or 'none'}. "
+            f"Ask me about any file, dependency, or diagram."
+            + note_text
+        ),
+        "mermaid": None,
+        "inferred": False,
+    }
+
+
 def run_chat_agent(
     message: str,
     project_id: str,
@@ -246,42 +341,16 @@ def run_chat_agent(
     target_file = _find_target_file(message, project_data)
 
     if not llm_configured():
-        if target_file:
-            dep_res = execute_tool("get_file_dependencies", {"file_path": target_file}, project_id, fallback_analysis)
-            return {
-                "message": _format_file_dependency_report(target_file, dep_res, project_data),
-                "mermaid": None,
-                "inferred": False,
-            }
+        return _build_grounded_response(message, project_id, project_data, fallback_analysis, target_file)
 
-        q = message.lower()
-        if "what" in q or "summary" in q or "project" in q or "overview" in q:
-            summary = project_data.get("architecture_summary")
-            if summary:
-                return {"message": summary, "mermaid": None, "inferred": False}
-        if "diagram" in q or "graph" in q:
-            tool_res = execute_tool("generate_diagram", {"scope": "all"}, project_id, fallback_analysis)
-            return {
-                "message": "Here is the extracted dependency diagram from your codebase.",
-                "mermaid": tool_res.get("mermaid"),
-                "inferred": False,
-            }
-        if "circular" in q or "cycle" in q:
-            cycles = project_data.get("circular_deps", [])
-            if cycles:
-                c_list = "\n".join(f"{i+1}. {' → '.join(c)}" for i, c in enumerate(cycles[:8]))
-                return {"message": f"Detected circular dependency loops:\n{c_list}", "mermaid": None, "inferred": False}
-            return {"message": "No circular dependencies detected in the parsed import graph.", "mermaid": None, "inferred": False}
-        return {
-            "message": "Offline mode active. Query files, diagrams, or architecture metrics.",
-        }
+    llm_err: str | None = None
 
     # 1. Prefer Groq (fastest, robust, tested in < 1 second)
     if settings.groq_api_key:
         try:
             return _run_groq_agent(message, project_id, fallback_analysis, target_file)
         except Exception as exc:
-            pass
+            llm_err = f"Groq returned {exc}"
 
     # 2. Fall back to Gemini
     if settings.gemini_api_key:
@@ -296,20 +365,8 @@ def run_chat_agent(
                 parts = candidates[0].get("content", {}).get("parts", [])
                 texts = [p.get("text", "") for p in parts if "text" in p]
                 return {"message": "".join(texts).strip(), "mermaid": None, "inferred": False}
-        except Exception:
-            pass
+        except Exception as exc:
+            llm_err = f"Gemini returned {exc}"
 
     # 3. Deterministic Grounded AST Fallback
-    if target_file:
-        dep_res = execute_tool("get_file_dependencies", {"file_path": target_file}, project_id, fallback_analysis)
-        return {
-            "message": _format_file_dependency_report(target_file, dep_res, project_data),
-            "mermaid": None,
-            "inferred": False,
-        }
-
-    return {
-        "message": "Could not connect to LLM provider. Please check network connectivity and API keys.",
-        "mermaid": None,
-        "inferred": False,
-    }
+    return _build_grounded_response(message, project_id, project_data, fallback_analysis, target_file, llm_error=llm_err)
